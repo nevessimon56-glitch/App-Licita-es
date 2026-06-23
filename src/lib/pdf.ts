@@ -1,9 +1,12 @@
 import type { UploadedDocument } from "./analysis-prompt";
+import { MAX_FILES_PER_ANALYSIS } from "./file-limits";
+
+export { MAX_FILES_PER_ANALYSIS } from "./file-limits";
 
 /** Limite por documento na análise (caracteres) */
-const MAX_CHARS_PER_DOCUMENT = 200_000;
-/** Limite total enviado ao Gemini */
-const MAX_TOTAL_CHARS = 500_000;
+const MAX_CHARS_PER_DOCUMENT = 180_000;
+/** Limite total enviado ao Gemini — dividido entre todos os arquivos */
+const MAX_TOTAL_CHARS = 600_000;
 
 const TYPE_PRIORITY: Record<UploadedDocument["type"], number> = {
   edital: 0,
@@ -37,7 +40,7 @@ export function buildDocumentContext(documents: UploadedDocument[]): string {
   const typeLabels: Record<UploadedDocument["type"], string> = {
     edital: "EDITAL",
     termo_referencia: "TERMO DE REFERÊNCIA",
-    anexo: "ANEXO",
+    anexo: "ANEXO TÉCNICO",
     outro: "DOCUMENTO",
   };
 
@@ -45,27 +48,34 @@ export function buildDocumentContext(documents: UploadedDocument[]): string {
   let totalChars = 0;
   const parts: string[] = [];
 
-  for (const doc of sorted) {
+  for (let i = 0; i < sorted.length; i++) {
+    const doc = sorted[i];
     const label = typeLabels[doc.type];
+    const docsRemaining = sorted.length - i;
+    const remainingBudget = MAX_TOTAL_CHARS - totalChars;
+
+    if (remainingBudget <= 0) break;
+
+    // Garante espaço mínimo para cada arquivo (importante com 3+ PDFs)
+    const fairShare = Math.floor(remainingBudget / docsRemaining);
+    const docBudget = Math.min(MAX_CHARS_PER_DOCUMENT, fairShare);
+
     const truncated =
-      doc.text.length > MAX_CHARS_PER_DOCUMENT
-        ? doc.text.slice(0, MAX_CHARS_PER_DOCUMENT) +
+      doc.text.length > docBudget
+        ? doc.text.slice(0, docBudget) +
           "\n\n[... TEXTO TRUNCADO — documento muito extenso ...]"
         : doc.text;
 
-    const remaining = MAX_TOTAL_CHARS - totalChars;
-    if (remaining <= 0) break;
-
-    const chunk =
-      truncated.length > remaining
-        ? truncated.slice(0, remaining) +
-          "\n\n[... TEXTO TRUNCADO — limite total atingido ...]"
-        : truncated;
-
     parts.push(
-      `\n\n========== ${label}: ${doc.name} (${doc.pageCount} páginas) ==========\n\n${chunk}`
+      `\n\n========== ${label}: ${doc.name} (${doc.pageCount} páginas) ==========\n\n${truncated}`
     );
-    totalChars += chunk.length;
+    totalChars += truncated.length;
+  }
+
+  if (sorted.length > parts.length) {
+    parts.push(
+      `\n\n[AVISO: ${sorted.length - parts.length} documento(s) não couberam no limite de contexto e foram omitidos parcialmente.]`
+    );
   }
 
   return parts.join("");
@@ -74,6 +84,10 @@ export function buildDocumentContext(documents: UploadedDocument[]): string {
 export function validateDocuments(documents: UploadedDocument[]): string | null {
   if (!documents.length) {
     return "Envie pelo menos um documento (PDF) para análise.";
+  }
+
+  if (documents.length > MAX_FILES_PER_ANALYSIS) {
+    return `Máximo de ${MAX_FILES_PER_ANALYSIS} PDFs por análise.`;
   }
 
   const hasContent = documents.some((doc) => doc.text.trim().length > 100);

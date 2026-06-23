@@ -88,6 +88,8 @@ ${extraRules}
 DOCUMENTOS FORNECIDOS (${documents.length} arquivo(s)):
 ${documents.map((d) => `- ${d.name} [${d.type}] — ${d.pageCount} páginas`).join("\n")}
 
+IMPORTANTE: analise TODOS os arquivos em conjunto. Especificações de itens/equipamentos podem estar no Termo de Referência ou em anexos, não apenas no edital.
+
 ${context}`;
 }
 

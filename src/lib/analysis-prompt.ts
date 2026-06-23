@@ -29,6 +29,7 @@ REGRAS OBRIGATÓRIAS:
 - Informe página, item ou cláusula em: instalação, garantia, penalidades, habilitação, prazos, valores e divergências.
 - Se houver divergência entre Edital e Termo de Referência, crie bloco ## Divergências identificadas logo após o aviso.
 - Utilize todos os anexos técnicos fornecidos.
+- Os arquivos podem vir separados (Edital, Termo de Referência, Anexos). Especificações de equipamentos e itens podem estar no TR ou em anexos — consulte TODOS os documentos enviados.
 - Responda em português brasileiro, em Markdown bem formatado.
 - IMPORTANTE: Você DEVE gerar TODAS as seções listadas abaixo, do início ao Checklist. Não interrompa a resposta antes de concluir.
 
@@ -190,6 +191,7 @@ REGRAS OBRIGATÓRIAS:
 - NÃO repita o órgão após o subtítulo inicial.
 - Use tabelas Markdown compactas.
 - Dado ausente: "Não localizado no documento".
+- Os arquivos podem vir separados (Edital, TR, Anexos). Itens e equipamentos podem estar no Termo de Referência ou anexos — use TODOS os documentos.
 - Resposta em português brasileiro.
 
 O QUE NÃO INCLUIR (proibido nesta versão):

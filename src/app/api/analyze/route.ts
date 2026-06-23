@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeDocuments } from "@/lib/analyze";
 import { extractTextFromPdf } from "@/lib/pdf";
+import { validateFileCount } from "@/lib/file-limits";
 import type { UploadedDocument, AnalysisMode } from "@/lib/analysis-prompt";
 
 export const runtime = "nodejs";
@@ -26,6 +27,11 @@ export async function POST(request: NextRequest) {
         { error: "Nenhum arquivo enviado." },
         { status: 400 }
       );
+    }
+
+    const countError = validateFileCount(files.length);
+    if (countError) {
+      return NextResponse.json({ error: countError }, { status: 400 });
     }
 
     const rawMode = (formData.get("mode") as string) ?? "completo";

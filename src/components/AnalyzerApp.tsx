@@ -15,6 +15,7 @@ import {
 import { ResultsTabs } from "./ResultsTabs";
 import type { AnalysisMode, AnalysisResponse } from "@/lib/analysis-prompt";
 import { MODE_LABELS } from "@/lib/analysis-prompt";
+import { MAX_FILES_PER_ANALYSIS, validateFileCount } from "@/lib/file-limits";
 
 export type DocumentType = "edital" | "termo_referencia" | "anexo" | "outro";
 
@@ -61,6 +62,14 @@ export function AnalyzerApp() {
     }
 
     setError(null);
+
+    const combinedCount = files.length + pdfFiles.length;
+    const countError = validateFileCount(combinedCount);
+    if (countError) {
+      setError(countError);
+      return;
+    }
+
     setFiles((prev) => [
       ...prev,
       ...pdfFiles.map((file) => ({
@@ -69,7 +78,7 @@ export function AnalyzerApp() {
         type: inferDocumentType(file.name),
       })),
     ]);
-  }, []);
+  }, [files.length]);
 
   const removeFile = (id: string) => {
     setFiles((prev) => prev.filter((f) => f.id !== id));
@@ -178,8 +187,13 @@ export function AnalyzerApp() {
             <p className="text-slate-600 mb-1">
               Arraste os PDFs aqui ou clique para selecionar
             </p>
+            <p className="text-xs text-slate-400 mb-2">
+              Envie <strong>Edital</strong> + <strong>Termo de Referência</strong> +{" "}
+              <strong>Anexos</strong> quando estiverem em arquivos separados.
+            </p>
             <p className="text-xs text-slate-400 mb-4">
-              Edital, Termo de Referência, anexos técnicos e demais documentos
+              Até {MAX_FILES_PER_ANALYSIS} PDFs por análise — marque o tipo de cada um
+              abaixo.
             </p>
             <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-700 text-white rounded-lg cursor-pointer hover:bg-blue-800 transition-colors text-sm font-medium">
               <Upload className="w-4 h-4" />
@@ -197,9 +211,22 @@ export function AnalyzerApp() {
           {/* File list */}
           {files.length > 0 && (
             <div className="mt-6 space-y-2">
-              <p className="text-sm font-medium text-slate-700">
-                {files.length} arquivo(s) selecionado(s)
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-slate-700">
+                  {files.length} de {MAX_FILES_PER_ANALYSIS} arquivo(s)
+                </p>
+                <label className="inline-flex items-center gap-1.5 text-xs text-blue-700 cursor-pointer hover:underline">
+                  <Upload className="w-3.5 h-3.5" />
+                  Adicionar mais PDFs
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => e.target.files && addFiles(e.target.files)}
+                  />
+                </label>
+              </div>
               {files.map((entry) => (
                 <div
                   key={entry.id}
