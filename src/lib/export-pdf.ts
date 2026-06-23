@@ -1,6 +1,22 @@
-import type { TDocumentDefinitions, Content } from "pdfmake/interfaces";
+import type { TDocumentDefinitions, Content, TableCell } from "pdfmake/interfaces";
 import type { AnalysisResponse } from "./analysis-prompt";
-import { buildExportFilename, parseMarkdownToBlocks } from "./markdown-blocks";
+import {
+  buildExportFilename,
+  extractDocumentMeta,
+  parseDocumentMarkdown,
+  type DocumentBlock,
+} from "./document-parser";
+
+const COLORS = {
+  primary: "#1a365d",
+  secondary: "#2c5282",
+  text: "#2d3748",
+  muted: "#718096",
+  border: "#cbd5e0",
+  headerBg: "#edf2f7",
+  attentionBg: "#fffbeb",
+  attentionBorder: "#f6ad55",
+};
 
 async function getPdfMake() {
   const pdfMakeModule = await import("pdfmake/build/pdfmake");
@@ -13,46 +29,142 @@ async function getPdfMake() {
   return pdfMake;
 }
 
-function blocksToPdfContent(
-  blocks: ReturnType<typeof parseMarkdownToBlocks>
-): Content[] {
+function keyValueTable(rows: { label: string; value: string }[]): Content {
+  return {
+    table: {
+      widths: [130, "*"],
+      body: rows.map((row) => [
+        { text: row.label, style: "kvLabel" },
+        { text: row.value, style: "kvValue" },
+      ]),
+    },
+    layout: {
+      hLineWidth: () => 0.5,
+      vLineWidth: () => 0,
+      hLineColor: () => COLORS.border,
+      paddingLeft: () => 8,
+      paddingRight: () => 8,
+      paddingTop: () => 6,
+      paddingBottom: () => 6,
+    },
+    margin: [0, 0, 0, 14],
+  };
+}
+
+function dataTable(headers: string[], rows: string[][]): Content {
+  const headerRow: TableCell[] = headers.map((h) => ({
+    text: h,
+    style: "tableHeader",
+    fillColor: COLORS.headerBg,
+  }));
+
+  const bodyRows: TableCell[][] = rows.map((row) =>
+    row.map((cell) => ({ text: cell, style: "tableCell" }))
+  );
+
+  const colCount = headers.length;
+  const widths =
+    colCount <= 2
+      ? [140, "*"]
+      : colCount === 3
+        ? [60, "*", "*"]
+        : Array(colCount).fill("*");
+
+  return {
+    table: {
+      headerRows: 1,
+      widths,
+      body: [headerRow, ...bodyRows],
+    },
+    layout: {
+      hLineWidth: (i: number, node: { table: { body: unknown[] } }) =>
+        i === 0 || i === 1 || i === node.table.body.length ? 0.8 : 0.4,
+      vLineWidth: () => 0.4,
+      hLineColor: () => COLORS.border,
+      vLineColor: () => COLORS.border,
+      paddingLeft: () => 6,
+      paddingRight: () => 6,
+      paddingTop: () => 5,
+      paddingBottom: () => 5,
+    },
+    margin: [0, 4, 0, 16],
+  };
+}
+
+function blocksToPdfContent(blocks: DocumentBlock[]): Content[] {
   const content: Content[] = [];
+  let skipTitle = true;
 
   for (const block of blocks) {
     switch (block.type) {
-      case "h2":
+      case "title":
+        if (skipTitle) {
+          skipTitle = false;
+          break;
+        }
+        content.push({ text: block.text, style: "docTitle", margin: [0, 20, 0, 4] });
+        break;
+
+      case "subtitle":
+        content.push({ text: block.text, style: "docSubtitle", margin: [0, 0, 0, 16] });
+        break;
+
+      case "section":
         content.push({
           text: block.text,
           style: "sectionTitle",
-          margin: [0, 18, 0, 8],
+          margin: [0, 18, 0, 10],
         });
         break;
-      case "h3":
+
+      case "subsection":
         content.push({
           text: block.text,
-          style: "subTitle",
-          margin: [0, 12, 0, 6],
+          style: "subsectionTitle",
+          margin: [0, 12, 0, 8],
         });
         break;
+
+      case "keyvalue":
+        content.push(keyValueTable(block.rows));
+        break;
+
+      case "table":
+        if (block.headers.length === 2 && block.rows.length <= 12) {
+          const allSimple = block.rows.every((r) => r.length === 2);
+          if (allSimple && !block.headers[0].toLowerCase().includes("item")) {
+            content.push(
+              keyValueTable(
+                block.rows.map((r) => ({ label: r[0], value: r[1] }))
+              )
+            );
+            break;
+          }
+        }
+        content.push(dataTable(block.headers, block.rows));
+        break;
+
       case "paragraph":
         content.push({
           text: block.text,
-          style: "body",
-          margin: [0, 0, 0, 6],
+          style: block.variant === "attention" ? "attention" : "body",
+          margin: [0, 0, 0, 10],
         });
         break;
+
       case "list":
         content.push({
-          ul: block.items,
+          ul: block.items.map((item) => `• ${item}`),
           style: "body",
-          margin: [0, 0, 0, 8],
+          margin: [0, 0, 0, 12],
         });
         break;
+
       case "checkbox":
         content.push({
           ul: block.items.map((item) => `☐ ${item}`),
           style: "body",
-          margin: [0, 0, 0, 8],
+          margin: [0, 0, 0, 12],
         });
         break;
     }
@@ -63,108 +175,118 @@ function blocksToPdfContent(
 
 export async function exportAnalysisToPdf(result: AnalysisResponse): Promise<void> {
   const pdfMake = await getPdfMake();
-  const blocks = parseMarkdownToBlocks(result.analysis);
-  const generatedDate = new Date(result.generatedAt).toLocaleString("pt-BR");
-  const docs = result.documentSummary
-    .map((d) => `${d.name} (${d.pageCount} pág.)`)
-    .join(" · ");
+  const blocks = parseDocumentMarkdown(result.analysis);
+  const meta = extractDocumentMeta(blocks);
+  const generatedDate = new Date(result.generatedAt).toLocaleDateString("pt-BR");
+  const docs = result.documentSummary.map((d) => d.name).join(", ");
 
   const docDefinition: TDocumentDefinitions = {
     info: {
-      title: "Análise de Licitação",
+      title: meta.title,
       author: "App Licitações",
-      subject: "Resumo executivo de licitação pública",
+      subject: "Resumo de edital",
     },
     pageSize: "A4",
-    pageMargins: [50, 60, 50, 60],
+    pageMargins: [48, 56, 48, 56],
     defaultStyle: {
       font: "Roboto",
-      fontSize: 10,
-      lineHeight: 1.35,
-      color: "#334155",
+      fontSize: 9.5,
+      lineHeight: 1.4,
+      color: COLORS.text,
     },
     styles: {
-      coverTitle: {
-        fontSize: 22,
+      docTitle: {
+        fontSize: 16,
         bold: true,
-        color: "#1E40AF",
-        alignment: "center",
+        color: COLORS.primary,
       },
-      coverSubtitle: {
-        fontSize: 13,
-        color: "#475569",
-        alignment: "center",
-        margin: [0, 8, 0, 0] as [number, number, number, number],
-      },
-      meta: {
-        fontSize: 9,
-        color: "#64748B",
-        margin: [0, 4, 0, 0] as [number, number, number, number],
+      docSubtitle: {
+        fontSize: 11,
+        color: COLORS.secondary,
       },
       sectionTitle: {
-        fontSize: 14,
-        bold: true,
-        color: "#1E3A8A",
-      },
-      subTitle: {
         fontSize: 12,
         bold: true,
-        color: "#1E293B",
+        color: COLORS.primary,
+      },
+      subsectionTitle: {
+        fontSize: 10.5,
+        bold: true,
+        color: COLORS.secondary,
+      },
+      kvLabel: {
+        fontSize: 9.5,
+        bold: true,
+        color: COLORS.primary,
+      },
+      kvValue: {
+        fontSize: 9.5,
+        color: COLORS.text,
+      },
+      tableHeader: {
+        fontSize: 9,
+        bold: true,
+        color: COLORS.primary,
+      },
+      tableCell: {
+        fontSize: 9,
+        color: COLORS.text,
       },
       body: {
-        fontSize: 10,
-        color: "#334155",
+        fontSize: 9.5,
+        color: COLORS.text,
+      },
+      attention: {
+        fontSize: 9,
+        color: "#744210",
+        italics: true,
+        fillColor: COLORS.attentionBg,
       },
       footer: {
-        fontSize: 8,
-        color: "#94A3B8",
-        italics: true,
+        fontSize: 7.5,
+        color: COLORS.muted,
       },
     },
     footer: (currentPage, pageCount) => ({
+      margin: [48, 0, 48, 0],
       columns: [
         {
-          text: "App Licitações — Análise baseada nos documentos enviados",
+          text: `Documento gerado em ${generatedDate} · App Licitações`,
           style: "footer",
           alignment: "left",
-          margin: [50, 0, 0, 0],
         },
         {
-          text: `Página ${currentPage} de ${pageCount}`,
+          text: `${currentPage} / ${pageCount}`,
           style: "footer",
           alignment: "right",
-          margin: [0, 0, 50, 0],
         },
       ],
     }),
     content: [
-      { text: "APP LICITAÇÕES", style: "coverTitle" },
-      {
-        text: "Resumo Executivo de Licitação Pública",
-        style: "coverSubtitle",
-      },
-      { text: `Gerado em: ${generatedDate}`, style: "meta", alignment: "center" },
-      { text: `Modelo: ${result.model}`, style: "meta", alignment: "center" },
-      { text: `Documentos: ${docs}`, style: "meta", alignment: "center", margin: [0, 4, 0, 24] },
+      { text: meta.title, style: "docTitle" },
+      ...(meta.subtitle
+        ? [{ text: meta.subtitle, style: "docSubtitle", margin: [0, 2, 0, 14] as [number, number, number, number] }]
+        : [{ text: "", margin: [0, 0, 0, 10] as [number, number, number, number] }]),
       {
         canvas: [
           {
             type: "line",
             x1: 0,
             y1: 0,
-            x2: 495,
+            x2: 499,
             y2: 0,
-            lineWidth: 1,
-            lineColor: "#DBEAFE",
+            lineWidth: 1.2,
+            lineColor: COLORS.primary,
           },
         ],
-        margin: [0, 0, 0, 20],
+        margin: [0, 0, 0, 16],
       },
       ...blocksToPdfContent(blocks),
       {
-        text: "Documento gerado pelo App Licitações. Não substitui assessoria jurídica especializada.",
+        text: `Fonte: ${docs}. Este resumo não substitui o edital completo. Revisar documentação oficial antes de participar.`,
         style: "footer",
-        margin: [0, 30, 0, 0],
+        margin: [0, 24, 0, 0],
+        italics: true,
       },
     ],
   };

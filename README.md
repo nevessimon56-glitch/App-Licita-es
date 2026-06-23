@@ -180,7 +180,7 @@ src/
     ├── analyze.ts             # Integração com OpenAI
     ├── export-pdf.ts          # Geração de PDF
     ├── export-word.ts         # Geração de Word
-    ├── markdown-blocks.ts     # Parser de markdown para export
+    ├── document-parser.ts     # Parser e layout do documento
     └── pdf.ts                 # Extração de texto de PDF
 ```
 

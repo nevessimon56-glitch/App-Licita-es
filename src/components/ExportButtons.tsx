@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Download, FileText, FileType, Loader2 } from "lucide-react";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
-import { buildExportFilename, downloadBlob } from "@/lib/markdown-blocks";
+import { buildExportFilename, downloadBlob } from "@/lib/document-parser";
 
 interface Props {
   result: AnalysisResponse;
