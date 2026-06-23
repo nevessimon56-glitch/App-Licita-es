@@ -10,7 +10,7 @@ import {
   Scale,
   ChevronDown,
 } from "lucide-react";
-import { AnalysisResult } from "./AnalysisResult";
+import { ResultsTabs } from "./ResultsTabs";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
 
 export type DocumentType = "edital" | "termo_referencia" | "anexo" | "outro";
@@ -34,7 +34,7 @@ const LOADING_STEPS = [
   "Identificando equipamentos e especificações...",
   "Analisando entrega, instalação e garantias...",
   "Verificando documentação e penalidades...",
-  "Gerando resumo executivo (18 tópicos)...",
+  "Gerando resumo executivo...",
 ];
 
 export function AnalyzerApp() {
@@ -130,9 +130,9 @@ export function AnalyzerApp() {
             </h1>
           </div>
           <p className="text-blue-100 text-sm md:text-base max-w-3xl">
-            Análise executiva completa de editais, Termos de Referência e anexos
-            — 18 tópicos conforme a Lei nº 14.133/2021. Apenas informações
-            presentes nos documentos, com referência de página e cláusula.
+            Análise executiva de editais com resumo estruturado e chat
+            interativo — conforme a Lei nº 14.133/2021. Apenas informações dos
+            documentos enviados.
           </p>
         </div>
       </header>
@@ -269,7 +269,7 @@ export function AnalyzerApp() {
         </section>
 
         {/* Results */}
-        {result && <AnalysisResult result={result} />}
+        {result && <ResultsTabs result={result} />}
       </main>
 
       <footer className="border-t border-slate-200 mt-12 py-6 text-center text-xs text-slate-400">

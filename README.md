@@ -8,25 +8,8 @@ O sistema extrai o texto dos PDFs enviados e gera um resumo estruturado em **18 
 
 - Upload de múltiplos PDFs (Edital, Termo de Referência, anexos)
 - Classificação automática do tipo de documento (editável)
-- Análise completa em 18 seções:
-  1. Resumo Geral
-  2. Equipamentos
-  3. Entrega
-  4. Instalação
-  5. Pagamento
-  6. Garantia
-  7. Assistência Técnica
-  8. Documentação exigida
-  9. Proposta Comercial
-  10. Penalidades
-  11. Obrigações da Contratada
-  12. Obrigações da Contratante
-  13. Prazos Importantes
-  14. Valores
-  15. Pontos de Atenção
-  16. Riscos para o fornecedor
-  17. Checklist para participação
-  18. Conclusão
+- Análise completa em 14 seções estruturadas (tabelas e formato profissional)
+- **Chat interativo** para tirar dúvidas sobre o edital após a análise
 - Exportação do resultado em **PDF**, **Word (.docx)** e Markdown
 - Interface responsiva e profissional (sem login)
 
@@ -88,7 +71,8 @@ npm run dev
 2. Confirme ou ajuste o tipo de cada documento
 3. Clique em **Analisar licitação**
 4. Aguarde a geração do resumo executivo
-5. Exporte em **PDF**, **Word** ou Markdown
+5. Use a aba **Chat** para tirar dúvidas sobre o edital
+6. Exporte em **PDF**, **Word** ou Markdown
 
 ## Deploy na Vercel
 
@@ -168,16 +152,20 @@ npm run lint     # Verificação ESLint
 src/
 ├── app/
 │   ├── api/analyze/route.ts   # Endpoint de análise
+│   ├── api/chat/route.ts      # Endpoint do chat
 │   ├── globals.css
 │   ├── layout.tsx
 │   └── page.tsx
 ├── components/
 │   ├── AnalyzerApp.tsx        # Interface principal
-│   ├── AnalysisResult.tsx     # Exibição do resultado
+│   ├── ResultsTabs.tsx        # Abas Resumo / Chat
+│   ├── ChatPanel.tsx          # Chat sobre o edital
 │   └── ExportButtons.tsx      # Botões PDF / Word / Markdown
 └── lib/
     ├── analysis-prompt.ts     # Prompt e estrutura dos 18 tópicos
-    ├── analyze.ts             # Integração com OpenAI
+    ├── analyze.ts             # Integração análise
+    ├── chat.ts                # Integração chat
+    ├── gemini.ts              # Cliente Gemini compartilhado
     ├── export-pdf.ts          # Geração de PDF
     ├── export-word.ts         # Geração de Word
     ├── document-parser.ts     # Parser e layout do documento
