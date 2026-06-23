@@ -1,9 +1,9 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-/** Modelos rápidos para análise (ordem de preferência) */
+/** Modelos para análise — Flash primeiro (qualidade), Lite como fallback */
 export const ANALYSIS_MODELS = [
-  "gemini-2.5-flash-lite",
   "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
 ] as const;
 
 /** Modelos para chat */
@@ -18,7 +18,7 @@ export const GEMINI_MODELS = [
   "gemini-3-flash-preview",
 ] as const;
 
-const DEFAULT_ANALYSIS_MODEL = "gemini-2.5-flash-lite";
+const DEFAULT_ANALYSIS_MODEL = "gemini-2.5-flash";
 const DEFAULT_CHAT_MODEL = "gemini-2.5-flash";
 
 export function getGeminiApiKey(): string {

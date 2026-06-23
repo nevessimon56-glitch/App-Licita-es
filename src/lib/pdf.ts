@@ -2,8 +2,8 @@ import type { UploadedDocument } from "./analysis-prompt";
 
 /** Limite por documento na análise (caracteres) */
 const MAX_CHARS_PER_DOCUMENT = 200_000;
-/** Limite total enviado ao Gemini — editais grandes ainda cabem, mas evita timeouts */
-const MAX_TOTAL_CHARS = 350_000;
+/** Limite total enviado ao Gemini */
+const MAX_TOTAL_CHARS = 500_000;
 
 const TYPE_PRIORITY: Record<UploadedDocument["type"], number> = {
   edital: 0,

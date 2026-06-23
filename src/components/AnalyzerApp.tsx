@@ -268,8 +268,8 @@ export function AnalyzerApp() {
                 {LOADING_STEPS[loadingStep]}
               </p>
               <p className="text-xs text-blue-600 mt-1">
-                Tempo decorrido: {elapsed}s — Editais grandes podem levar 1 a 3
-                minutos. O modelo Flash-Lite é usado para maior velocidade.
+                Tempo decorrido: {elapsed}s — Editais grandes podem levar 1 a 4
+                minutos. A análise usa verificação automática de completude.
               </p>
             </div>
           )}

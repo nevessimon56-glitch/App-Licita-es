@@ -11,10 +11,20 @@ export function DocumentView({ markdown }: Props) {
   const blocks = parseDocumentMarkdown(markdown);
   const meta = extractDocumentMeta(blocks);
   const firstTitleIndex = blocks.findIndex((b) => b.type === "title");
+  const firstSectionIndex = blocks.findIndex((b) => b.type === "section");
 
-  const bodyBlocks = blocks.filter(
-    (block, index) => !(block.type === "title" && index === firstTitleIndex)
-  );
+  const bodyBlocks = blocks.filter((block, index) => {
+    if (block.type === "title" && index === firstTitleIndex) return false;
+    // Evita repetir órgão: já exibido no cabeçalho
+    if (
+      block.type === "section" &&
+      index === firstSectionIndex &&
+      block.text === meta.subtitle
+    ) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <article className="doc-report">
