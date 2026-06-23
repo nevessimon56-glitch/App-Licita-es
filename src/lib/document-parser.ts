@@ -65,6 +65,9 @@ export function parseDocumentMarkdown(markdown: string): DocumentBlock[] {
     keyValueBuffer.push({ label: stripMarkdown(label), value: stripMarkdown(value) });
   };
 
+  let seenTitle = false;
+  let seenSubtitle = false;
+
   for (const rawLine of lines) {
     const line = rawLine.trimEnd();
 
@@ -90,13 +93,20 @@ export function parseDocumentMarkdown(markdown: string): DocumentBlock[] {
     if (line.startsWith("# ")) {
       flushAll();
       blocks.push({ type: "title", text: stripMarkdown(line.slice(2)) });
+      seenTitle = true;
       continue;
     }
 
     if (line.startsWith("## ")) {
       flushAll();
       const text = cleanSectionTitle(stripMarkdown(line.slice(3)));
-      blocks.push({ type: "section", text });
+      // Primeiro ## após o título = órgão (subtítulo), não seção
+      if (seenTitle && !seenSubtitle) {
+        blocks.push({ type: "subtitle", text });
+        seenSubtitle = true;
+      } else {
+        blocks.push({ type: "section", text });
+      }
       continue;
     }
 
@@ -161,12 +171,15 @@ export function parseDocumentMarkdown(markdown: string): DocumentBlock[] {
 export function extractDocumentMeta(blocks: DocumentBlock[]) {
   const title = blocks.find((b) => b.type === "title")?.text;
   const subtitle = blocks.find((b) => b.type === "subtitle")?.text;
-  const firstSection = blocks.find((b) => b.type === "section")?.text;
 
   return {
     title: title ?? "Resumo do Edital",
-    subtitle: subtitle ?? firstSection ?? "",
+    subtitle: subtitle ?? "",
   };
+}
+
+export function normalizeText(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
 function cleanSectionTitle(text: string): string {

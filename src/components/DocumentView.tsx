@@ -1,7 +1,7 @@
 "use client";
 
 import type { DocumentBlock } from "@/lib/document-parser";
-import { extractDocumentMeta, parseDocumentMarkdown } from "@/lib/document-parser";
+import { extractDocumentMeta, normalizeText, parseDocumentMarkdown } from "@/lib/document-parser";
 
 interface Props {
   markdown: string;
@@ -11,15 +11,16 @@ export function DocumentView({ markdown }: Props) {
   const blocks = parseDocumentMarkdown(markdown);
   const meta = extractDocumentMeta(blocks);
   const firstTitleIndex = blocks.findIndex((b) => b.type === "title");
-  const firstSectionIndex = blocks.findIndex((b) => b.type === "section");
 
   const bodyBlocks = blocks.filter((block, index) => {
     if (block.type === "title" && index === firstTitleIndex) return false;
-    // Evita repetir órgão: já exibido no cabeçalho
+    if (block.type === "subtitle") return false;
+    // Pula parágrafo duplicado do órgão logo após o cabeçalho
     if (
-      block.type === "section" &&
-      index === firstSectionIndex &&
-      block.text === meta.subtitle
+      block.type === "paragraph" &&
+      meta.subtitle &&
+      block.variant === "normal" &&
+      normalizeText(block.text) === normalizeText(meta.subtitle)
     ) {
       return false;
     }
