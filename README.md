@@ -74,52 +74,101 @@ npm run dev
 5. Use a aba **Chat** para tirar dúvidas sobre o edital
 6. Exporte em **PDF**, **Word** ou Markdown
 
-## Deploy na Vercel
+## Deploy na Render (recomendado)
+
+Ideal para editais de 60+ páginas — **sem limite de 10 segundos** da Vercel.
 
 ### Passo a passo
 
-1. Acesse [vercel.com](https://vercel.com) e faça login com sua conta GitHub
-2. Clique em **Add New Project**
-3. Importe o repositório `App-Licita-es` (ou o nome do seu fork)
-4. A Vercel detecta automaticamente o Next.js — **não altere** as configurações de build:
-   - **Framework Preset:** Next.js
-   - **Build Command:** `npm run build`
-   - **Output Directory:** (padrão)
+1. Acesse [render.com](https://render.com) e faça login com GitHub
+2. Clique em **New +** → **Blueprint** (ou **Web Service**)
+3. Conecte o repositório `App-Licita-es`
+4. Se usar Blueprint, o Render detecta o `render.yaml` automaticamente
 5. Em **Environment Variables**, adicione:
 
    | Nome | Valor |
    |------|-------|
-   | `GEMINI_API_KEY` | sua chave `AIza...` do Google AI Studio |
-   | `GEMINI_MODEL` | `gemini-2.5-flash` (opcional) |
+   | `GEMINI_API_KEY` | sua chave `AIza...` |
+   | `GEMINI_ANALYSIS_MODEL` | `gemini-2.5-flash` |
+   | `GEMINI_CHAT_MODEL` | `gemini-2.5-flash` |
 
-6. Clique em **Deploy**
-7. Após o deploy, acesse a URL gerada (ex.: `https://app-licitacoes.vercel.app`)
+6. Escolha o plano **Starter** (~US$ 7/mês) — necessário para o app não "dormir"
+7. Clique em **Deploy**
+8. Aguarde o build (~3–5 min) e acesse a URL gerada (ex.: `https://app-licitacoes.onrender.com`)
 
-### Deploy via CLI (alternativa)
+### Configuração manual (sem Blueprint)
 
-```bash
-npm i -g vercel
-vercel login
-vercel
+| Campo | Valor |
+|-------|-------|
+| **Environment** | Node |
+| **Build Command** | `npm install && npm run build` |
+| **Start Command** | `npm start` |
+| **Plan** | Starter |
 
-# Na primeira vez, siga as perguntas:
-# - Link to existing project? No
-# - Project name: app-licitacoes
-# - Directory: ./
+### Observações Render
 
-# Adicione a variável de ambiente:
-vercel env add GEMINI_API_KEY
+- **Análises longas:** funcionam bem — sem timeout de 10s
+- **Plano grátis:** o app "dorme" após inatividade (demora ~1 min para acordar)
+- **Plano Starter:** sempre ativo, recomendado para uso na empresa
 
-# Deploy em produção:
-vercel --prod
-```
+---
 
-### Observações importantes para a Vercel
+## Como remover da Vercel
 
-- **Sem login/Supabase:** o app funciona direto, sem autenticação
-- **Timeout da análise:** editais grandes podem demorar. O plano Hobby tem limite de **10 segundos** por função serverless; análises longas podem falhar. No plano Pro, o timeout pode chegar a **60 segundos** (já configurado em `vercel.json`)
-- **Chave Gemini:** configure sempre em *Environment Variables* da Vercel, nunca no código
-- **Custo Gemini:** cada análise consome tokens da sua conta Google
+Faça isso **depois** de confirmar que o app está funcionando na Render.
+
+### 1. Excluir o projeto na Vercel
+
+1. Acesse [vercel.com/dashboard](https://vercel.com/dashboard)
+2. Clique no projeto **App-Licita-es** (ou nome que você deu)
+3. Vá em **Settings** (Configurações)
+4. Role até o final → **Delete Project**
+5. Digite o nome do projeto para confirmar → **Delete**
+
+### 2. Desconectar o GitHub (opcional)
+
+Se não for usar a Vercel para mais nada:
+
+1. [vercel.com/account](https://vercel.com/account) → **Git** ou **Integrations**
+2. Em GitHub, clique em **Manage** → remova acesso ao repositório (opcional)
+
+### 3. Domínio personalizado (se tiver)
+
+Se configurou domínio próprio na Vercel:
+
+1. No painel do seu domínio (Registro.br, Cloudflare, etc.)
+2. Apague os registros DNS que apontavam para a Vercel
+3. Após deploy na Render, aponte para a URL da Render (se quiser domínio customizado)
+
+### 4. Variáveis de ambiente
+
+As variáveis da Vercel **não migram automaticamente** — copie manualmente:
+
+- `GEMINI_API_KEY` → cole na Render
+- `GEMINI_ANALYSIS_MODEL` → cole na Render
+
+### 5. Verificar
+
+- Acesse a URL da Render e teste uma análise
+- Só delete na Vercel quando a Render estiver OK
+
+> **Não precisa apagar o repositório no GitHub** — só o projeto na Vercel.
+
+---
+
+## Deploy na Vercel (não recomendado para editais longos)
+
+<details>
+<summary>Clique para ver instruções Vercel</summary>
+
+O plano grátis tem limite de **10 segundos** — editais de 60 páginas costumam falhar.
+
+1. Acesse [vercel.com](https://vercel.com)
+2. Importe o repositório
+3. Adicione `GEMINI_API_KEY` nas variáveis de ambiente
+4. Deploy
+
+</details>
 
 ## Limitações
 
