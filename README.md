@@ -56,13 +56,24 @@ Crie o arquivo `.env.local` na raiz do projeto:
 
 ```env
 GEMINI_API_KEY=AIza-sua-chave-aqui
-GEMINI_MODEL=gemini-2.0-flash
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 | Variável | Obrigatória | Descrição |
 |----------|-------------|-----------|
 | `GEMINI_API_KEY` | Sim | Chave da API Gemini ([obter aqui](https://aistudio.google.com/apikey)) |
-| `GEMINI_MODEL` | Não | Modelo usado na análise (padrão: `gemini-2.0-flash`) |
+| `GEMINI_MODEL` | Não | Modelo usado na análise (padrão: `gemini-2.5-flash`) |
+
+### Modelos recomendados
+
+| Modelo | Uso |
+|--------|-----|
+| `gemini-2.5-flash` | Padrão — rápido e bom custo |
+| `gemini-2.5-pro` | Editais longos e análise mais detalhada |
+| `gemini-2.5-flash-lite` | Mais barato, análises simples |
+| `gemini-3-flash-preview` | Modelo mais recente (preview) |
+
+> **Atenção:** modelos antigos como `gemini-2.0-flash` foram descontinuados pela Google. Se você configurou esse modelo na Vercel, troque por `gemini-2.5-flash`.
 
 ## Uso
 
@@ -95,7 +106,7 @@ npm run dev
    | Nome | Valor |
    |------|-------|
    | `GEMINI_API_KEY` | sua chave `AIza...` do Google AI Studio |
-   | `GEMINI_MODEL` | `gemini-2.0-flash` (opcional) |
+   | `GEMINI_MODEL` | `gemini-2.5-flash` (opcional) |
 
 6. Clique em **Deploy**
 7. Após o deploy, acesse a URL gerada (ex.: `https://app-licitacoes.vercel.app`)
