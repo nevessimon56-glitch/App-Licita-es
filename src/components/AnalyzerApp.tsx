@@ -16,6 +16,11 @@ import { ResultsTabs } from "./ResultsTabs";
 import type { AnalysisMode, AnalysisResponse } from "@/lib/analysis-prompt";
 import { MODE_LABELS } from "@/lib/analysis-prompt";
 import { MAX_FILES_PER_ANALYSIS, validateFileCount } from "@/lib/file-limits";
+import {
+  ACCEPTED_FILE_INPUT,
+  acceptedFormatsLabel,
+  isAcceptedFile,
+} from "@/lib/accepted-files";
 
 export type DocumentType = "edital" | "termo_referencia" | "anexo" | "outro";
 
@@ -33,7 +38,7 @@ const TYPE_OPTIONS: { value: DocumentType; label: string }[] = [
 ];
 
 const LOADING_STEPS = [
-  "Extraindo texto dos PDFs...",
+  "Extraindo texto dos documentos...",
   "Lendo edital e anexos...",
   "Identificando equipamentos e especificações...",
   "Analisando entrega, instalação e garantias...",
@@ -52,18 +57,16 @@ export function AnalyzerApp() {
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("completo");
 
   const addFiles = useCallback((incoming: FileList | File[]) => {
-    const pdfFiles = Array.from(incoming).filter((f) =>
-      f.name.toLowerCase().endsWith(".pdf")
-    );
+    const accepted = Array.from(incoming).filter((f) => isAcceptedFile(f.name));
 
-    if (!pdfFiles.length) {
-      setError("Apenas arquivos PDF são aceitos.");
+    if (!accepted.length) {
+      setError(`Apenas arquivos ${acceptedFormatsLabel()} são aceitos.`);
       return;
     }
 
     setError(null);
 
-    const combinedCount = files.length + pdfFiles.length;
+    const combinedCount = files.length + accepted.length;
     const countError = validateFileCount(combinedCount);
     if (countError) {
       setError(countError);
@@ -72,7 +75,7 @@ export function AnalyzerApp() {
 
     setFiles((prev) => [
       ...prev,
-      ...pdfFiles.map((file) => ({
+      ...accepted.map((file) => ({
         id: `${file.name}-${Date.now()}-${Math.random()}`,
         file,
         type: inferDocumentType(file.name),
@@ -92,7 +95,7 @@ export function AnalyzerApp() {
 
   const handleAnalyze = async () => {
     if (!files.length) {
-      setError("Adicione pelo menos um PDF antes de analisar.");
+      setError("Adicione pelo menos um documento (PDF, DOC ou DOCX) antes de analisar.");
       return;
     }
 
@@ -185,22 +188,22 @@ export function AnalyzerApp() {
           >
             <FileText className="w-12 h-12 text-slate-400 mx-auto mb-3" />
             <p className="text-slate-600 mb-1">
-              Arraste os PDFs aqui ou clique para selecionar
+              Arraste os arquivos aqui ou clique para selecionar
             </p>
             <p className="text-xs text-slate-400 mb-2">
-              Envie <strong>Edital</strong> + <strong>Termo de Referência</strong> +{" "}
-              <strong>Anexos</strong> quando estiverem em arquivos separados.
+              Formatos: <strong>PDF</strong>, <strong>DOC</strong> e{" "}
+              <strong>DOCX</strong> — Edital, Termo de Referência e Anexos.
             </p>
             <p className="text-xs text-slate-400 mb-4">
-              Até {MAX_FILES_PER_ANALYSIS} PDFs por análise — marque o tipo de cada um
-              abaixo.
+              Até {MAX_FILES_PER_ANALYSIS} arquivos por análise — marque o tipo
+              de cada um abaixo.
             </p>
             <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-700 text-white rounded-lg cursor-pointer hover:bg-blue-800 transition-colors text-sm font-medium">
               <Upload className="w-4 h-4" />
-              Selecionar PDFs
+              Selecionar arquivos
               <input
                 type="file"
-                accept=".pdf,application/pdf"
+                accept={ACCEPTED_FILE_INPUT}
                 multiple
                 className="hidden"
                 onChange={(e) => e.target.files && addFiles(e.target.files)}
@@ -217,10 +220,10 @@ export function AnalyzerApp() {
                 </p>
                 <label className="inline-flex items-center gap-1.5 text-xs text-blue-700 cursor-pointer hover:underline">
                   <Upload className="w-3.5 h-3.5" />
-                  Adicionar mais PDFs
+                  Adicionar mais arquivos
                   <input
                     type="file"
-                    accept=".pdf,application/pdf"
+                    accept={ACCEPTED_FILE_INPUT}
                     multiple
                     className="hidden"
                     onChange={(e) => e.target.files && addFiles(e.target.files)}

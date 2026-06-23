@@ -2,11 +2,11 @@
 
 Aplicação web para análise executiva detalhada de editais de licitação pública, Termos de Referência e anexos técnicos, conforme a **Lei nº 14.133/2021**.
 
-O sistema extrai o texto dos PDFs enviados e gera um resumo estruturado em **18 tópicos**, citando página, item ou cláusula de origem — **sem suposições** e apenas com base no conteúdo dos documentos.
+O sistema extrai o texto dos documentos enviados (**PDF, DOC e DOCX**) e gera um resumo estruturado em **18 tópicos**, citando página, item ou cláusula de origem — **sem suposições** e apenas com base no conteúdo dos documentos.
 
 ## Funcionalidades
 
-- Upload de múltiplos PDFs (Edital, Termo de Referência, anexos)
+- Upload de múltiplos documentos (PDF, DOC, DOCX) — Edital, Termo de Referência, anexos
 - Classificação automática do tipo de documento (editável)
 - Análise completa em 14 seções estruturadas (tabelas e formato profissional)
 - **Chat interativo** para tirar dúvidas sobre o edital após a análise
@@ -67,7 +67,7 @@ npm run dev
 # Acesse http://localhost:3000
 ```
 
-1. Envie os PDFs do edital, Termo de Referência e anexos
+1. Envie os documentos do edital (PDF, DOC ou DOCX), Termo de Referência e anexos
 2. Confirme ou ajuste o tipo de cada documento
 3. Clique em **Analisar licitação**
 4. Aguarde a geração do resumo executivo
@@ -173,6 +173,7 @@ O plano grátis tem limite de **10 segundos** — editais de 60 páginas costuma
 ## Limitações
 
 - **PDFs escaneados (imagem):** a extração de texto pode falhar. Use PDFs com texto selecionável ou considere OCR prévio.
+- **Arquivos Word (.doc/.docx):** use documentos com texto editável; arquivos protegidos ou corrompidos podem falhar na extração.
 - **Tamanho dos documentos:** documentos muito extensos podem ser truncados para respeitar limites do modelo.
 - **Não substitui assessoria jurídica:** a análise é automatizada e deve ser revisada por profissional qualificado.
 
@@ -181,7 +182,9 @@ O plano grátis tem limite de **10 segundos** — editais de 60 páginas costuma
 - [Next.js 15](https://nextjs.org/) (App Router)
 - [Tailwind CSS 4](https://tailwindcss.com/)
 - [Google Gemini API](https://ai.google.dev/)
-- [pdf-parse](https://www.npmjs.com/package/pdf-parse)
+- [pdf-parse](https://www.npmjs.com/package/pdf-parse) — extração de PDF
+- [mammoth](https://www.npmjs.com/package/mammoth) — extração de DOCX
+- [word-extractor](https://www.npmjs.com/package/word-extractor) — extração de DOC
 - [docx](https://www.npmjs.com/package/docx) — exportação Word
 - [pdfmake](https://pdfmake.github.io/docs/) — exportação PDF
 - [react-markdown](https://github.com/remarkjs/react-markdown)
@@ -215,10 +218,12 @@ src/
     ├── analyze.ts             # Integração análise
     ├── chat.ts                # Integração chat
     ├── gemini.ts              # Cliente Gemini compartilhado
+    ├── accepted-files.ts      # Formatos aceitos no upload
+    ├── document-extract.ts    # Extração de PDF, DOC e DOCX
     ├── export-pdf.ts          # Geração de PDF
     ├── export-word.ts         # Geração de Word
     ├── document-parser.ts     # Parser e layout do documento
-    └── pdf.ts                 # Extração de texto de PDF
+    └── pdf.ts                 # Montagem de contexto dos documentos
 ```
 
 ## Licença

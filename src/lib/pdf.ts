@@ -83,16 +83,16 @@ export function buildDocumentContext(documents: UploadedDocument[]): string {
 
 export function validateDocuments(documents: UploadedDocument[]): string | null {
   if (!documents.length) {
-    return "Envie pelo menos um documento (PDF) para análise.";
+    return "Envie pelo menos um documento (PDF, DOC ou DOCX) para análise.";
   }
 
   if (documents.length > MAX_FILES_PER_ANALYSIS) {
-    return `Máximo de ${MAX_FILES_PER_ANALYSIS} PDFs por análise.`;
+    return `Máximo de ${MAX_FILES_PER_ANALYSIS} arquivos por análise.`;
   }
 
   const hasContent = documents.some((doc) => doc.text.trim().length > 100);
   if (!hasContent) {
-    return "Não foi possível extrair texto suficiente dos PDFs. Verifique se os arquivos não são apenas imagens escaneadas.";
+    return "Não foi possível extrair texto suficiente dos arquivos. Verifique se os documentos não estão vazios ou protegidos por senha.";
   }
 
   return null;

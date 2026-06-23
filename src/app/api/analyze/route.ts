@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeDocuments } from "@/lib/analyze";
-import { extractTextFromPdf } from "@/lib/pdf";
+import { extractTextFromDocument } from "@/lib/document-extract";
+import { isAcceptedFile } from "@/lib/accepted-files";
 import { validateFileCount } from "@/lib/file-limits";
 import type { UploadedDocument, AnalysisMode } from "@/lib/analysis-prompt";
 
@@ -45,14 +46,17 @@ export async function POST(request: NextRequest) {
           ? (rawType as UploadedDocument["type"])
           : "outro";
 
-        if (!file.name.toLowerCase().endsWith(".pdf")) {
+        if (!isAcceptedFile(file.name)) {
           throw new Error(
-            `Arquivo "${file.name}" não é PDF. Apenas PDFs são aceitos.`
+            `Arquivo "${file.name}" não é suportado. Use PDF, DOC ou DOCX.`
           );
         }
 
         const buffer = Buffer.from(await file.arrayBuffer());
-        const { text, pageCount } = await extractTextFromPdf(buffer);
+        const { text, pageCount } = await extractTextFromDocument(
+          buffer,
+          file.name
+        );
 
         return { name: file.name, type, text, pageCount };
       })
@@ -61,7 +65,7 @@ export async function POST(request: NextRequest) {
     const result = await analyzeDocuments(documents, mode);
 
     console.info(
-      `[analyze:${mode}] ${documents.length} PDF(s) — ${((Date.now() - startedAt) / 1000).toFixed(1)}s — modelo ${result.model}`
+      `[analyze:${mode}] ${documents.length} arquivo(s) — ${((Date.now() - startedAt) / 1000).toFixed(1)}s — modelo ${result.model}`
     );
 
     return NextResponse.json(result);
