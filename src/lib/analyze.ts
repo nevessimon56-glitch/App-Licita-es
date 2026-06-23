@@ -3,7 +3,7 @@ import {
   type AnalysisResponse,
   type UploadedDocument,
 } from "./analysis-prompt";
-import { generateWithGemini } from "./gemini";
+import { generateWithGemini, ANALYSIS_MODELS } from "./gemini";
 import { buildDocumentContext, validateDocuments } from "./pdf";
 
 const MAX_CHAT_DOC_CHARS = 80_000;
@@ -29,6 +29,8 @@ ${context}`;
     systemInstruction: ANALYSIS_SYSTEM_PROMPT,
     userMessage,
     temperature: 0.1,
+    maxOutputTokens: 12_000,
+    models: ANALYSIS_MODELS,
   });
 
   return {

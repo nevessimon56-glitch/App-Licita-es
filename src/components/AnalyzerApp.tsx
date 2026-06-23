@@ -41,6 +41,7 @@ export function AnalyzerApp() {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResponse | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -86,10 +87,15 @@ export function AnalyzerApp() {
     setError(null);
     setResult(null);
     setLoadingStep(0);
+    setElapsed(0);
 
     const stepInterval = setInterval(() => {
       setLoadingStep((s) => (s < LOADING_STEPS.length - 1 ? s + 1 : s));
-    }, 8000);
+    }, 6000);
+
+    const elapsedInterval = setInterval(() => {
+      setElapsed((e) => e + 1);
+    }, 1000);
 
     try {
       const formData = new FormData();
@@ -114,6 +120,7 @@ export function AnalyzerApp() {
       setError(err instanceof Error ? err.message : "Erro desconhecido.");
     } finally {
       clearInterval(stepInterval);
+      clearInterval(elapsedInterval);
       setLoading(false);
     }
   };
@@ -261,8 +268,8 @@ export function AnalyzerApp() {
                 {LOADING_STEPS[loadingStep]}
               </p>
               <p className="text-xs text-blue-600 mt-1">
-                A análise completa pode levar alguns minutos dependendo do
-                tamanho dos documentos.
+                Tempo decorrido: {elapsed}s — Editais grandes podem levar 1 a 3
+                minutos. O modelo Flash-Lite é usado para maior velocidade.
               </p>
             </div>
           )}

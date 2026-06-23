@@ -1,7 +1,16 @@
 import type { UploadedDocument } from "./analysis-prompt";
 
-const MAX_CHARS_PER_DOCUMENT = 500_000;
-const MAX_TOTAL_CHARS = 1_200_000;
+/** Limite por documento na análise (caracteres) */
+const MAX_CHARS_PER_DOCUMENT = 200_000;
+/** Limite total enviado ao Gemini — editais grandes ainda cabem, mas evita timeouts */
+const MAX_TOTAL_CHARS = 350_000;
+
+const TYPE_PRIORITY: Record<UploadedDocument["type"], number> = {
+  edital: 0,
+  termo_referencia: 1,
+  anexo: 2,
+  outro: 3,
+};
 
 export async function extractTextFromPdf(buffer: Buffer): Promise<{
   text: string;
@@ -16,6 +25,14 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<{
   };
 }
 
+export function sortDocumentsByPriority(
+  documents: UploadedDocument[]
+): UploadedDocument[] {
+  return [...documents].sort(
+    (a, b) => TYPE_PRIORITY[a.type] - TYPE_PRIORITY[b.type]
+  );
+}
+
 export function buildDocumentContext(documents: UploadedDocument[]): string {
   const typeLabels: Record<UploadedDocument["type"], string> = {
     edital: "EDITAL",
@@ -24,15 +41,16 @@ export function buildDocumentContext(documents: UploadedDocument[]): string {
     outro: "DOCUMENTO",
   };
 
+  const sorted = sortDocumentsByPriority(documents);
   let totalChars = 0;
   const parts: string[] = [];
 
-  for (const doc of documents) {
+  for (const doc of sorted) {
     const label = typeLabels[doc.type];
     const truncated =
       doc.text.length > MAX_CHARS_PER_DOCUMENT
         ? doc.text.slice(0, MAX_CHARS_PER_DOCUMENT) +
-          "\n\n[... TEXTO TRUNCADO POR LIMITE DE TAMANHO ...]"
+          "\n\n[... TEXTO TRUNCADO — documento muito extenso ...]"
         : doc.text;
 
     const remaining = MAX_TOTAL_CHARS - totalChars;
@@ -41,7 +59,7 @@ export function buildDocumentContext(documents: UploadedDocument[]): string {
     const chunk =
       truncated.length > remaining
         ? truncated.slice(0, remaining) +
-          "\n\n[... TEXTO TRUNCADO POR LIMITE TOTAL ...]"
+          "\n\n[... TEXTO TRUNCADO — limite total atingido ...]"
         : truncated;
 
     parts.push(

@@ -1,13 +1,25 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export const GEMINI_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-pro",
+/** Modelos rápidos para análise (ordem de preferência) */
+export const ANALYSIS_MODELS = [
   "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
+] as const;
+
+/** Modelos para chat */
+export const CHAT_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+] as const;
+
+export const GEMINI_MODELS = [
+  ...ANALYSIS_MODELS,
+  "gemini-2.5-pro",
   "gemini-3-flash-preview",
 ] as const;
 
-const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+const DEFAULT_ANALYSIS_MODEL = "gemini-2.5-flash-lite";
+const DEFAULT_CHAT_MODEL = "gemini-2.5-flash";
 
 export function getGeminiApiKey(): string {
   const key = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
@@ -19,8 +31,20 @@ export function getGeminiApiKey(): string {
   return key;
 }
 
-export function getPreferredModel(): string {
-  return process.env.GEMINI_MODEL ?? DEFAULT_MODEL;
+export function getAnalysisModel(): string {
+  return (
+    process.env.GEMINI_ANALYSIS_MODEL ??
+    process.env.GEMINI_MODEL ??
+    DEFAULT_ANALYSIS_MODEL
+  );
+}
+
+export function getChatModel(): string {
+  return (
+    process.env.GEMINI_CHAT_MODEL ??
+    process.env.GEMINI_MODEL ??
+    DEFAULT_CHAT_MODEL
+  );
 }
 
 function isModelUnavailableError(message: string): boolean {
@@ -48,7 +72,7 @@ export function parseGeminiError(error: unknown): never {
   }
   if (isModelUnavailableError(message)) {
     throw new Error(
-      `Modelo Gemini indisponível. Atualize GEMINI_MODEL na Vercel para um destes: ${GEMINI_MODELS.join(", ")}`
+      `Modelo Gemini indisponível. Atualize GEMINI_ANALYSIS_MODEL ou GEMINI_CHAT_MODEL na Vercel.`
     );
   }
 
@@ -59,6 +83,8 @@ interface GenerateOptions {
   systemInstruction: string;
   userMessage: string;
   temperature?: number;
+  maxOutputTokens?: number;
+  models?: readonly string[];
   history?: { role: "user" | "model"; parts: [{ text: string }] }[];
 }
 
@@ -67,10 +93,11 @@ export async function generateWithGemini(options: GenerateOptions): Promise<{
   model: string;
 }> {
   const apiKey = getGeminiApiKey();
-  const preferredModel = getPreferredModel();
+  const preferred = options.models?.[0] ?? getAnalysisModel();
+  const fallbackList = options.models ?? ANALYSIS_MODELS;
   const modelsToTry = [
-    preferredModel,
-    ...GEMINI_MODELS.filter((m) => m !== preferredModel),
+    preferred,
+    ...fallbackList.filter((m) => m !== preferred),
   ];
 
   let lastError: unknown;
@@ -83,6 +110,9 @@ export async function generateWithGemini(options: GenerateOptions): Promise<{
         systemInstruction: options.systemInstruction,
         generationConfig: {
           temperature: options.temperature ?? 0.2,
+          ...(options.maxOutputTokens
+            ? { maxOutputTokens: options.maxOutputTokens }
+            : {}),
         },
       });
 

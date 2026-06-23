@@ -2,7 +2,7 @@ import {
   CHAT_SYSTEM_PROMPT,
   type ChatMessage,
 } from "./analysis-prompt";
-import { generateWithGemini } from "./gemini";
+import { generateWithGemini, getChatModel, CHAT_MODELS } from "./gemini";
 
 interface ChatDocument {
   name: string;
@@ -79,10 +79,18 @@ ${context}`;
     parts: [{ text: msg.content }] as [{ text: string }],
   }));
 
+  const chatModel = getChatModel();
+  const chatModels = [
+    chatModel,
+    ...CHAT_MODELS.filter((m) => m !== chatModel),
+  ];
+
   const { text, model } = await generateWithGemini({
     systemInstruction,
     userMessage: lastMessage.content,
     temperature: 0.3,
+    maxOutputTokens: 4_096,
+    models: chatModels,
     history: history.length ? history : undefined,
   });
 
