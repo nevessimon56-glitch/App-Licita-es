@@ -9,10 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "docx": "^9.5.0",
     "lucide-react": "^0.511.0",
     "next": "^15.3.2",
-    "openai": "^4.103.0",
     "pdf-parse": "^1.1.1",
     "pdfmake": "^0.2.20",
     "react": "^19.1.0",

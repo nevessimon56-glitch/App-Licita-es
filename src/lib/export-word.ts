@@ -162,6 +162,5 @@ export async function exportAnalysisToWord(result: AnalysisResponse): Promise<vo
   });
 
   const blob = await Packer.toBlob(doc);
-  const { downloadBlob, buildExportFilename } = await import("./markdown-blocks");
   downloadBlob(blob, `${buildExportFilename()}.docx`);
 }

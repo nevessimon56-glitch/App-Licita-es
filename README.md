@@ -33,7 +33,7 @@ O sistema extrai o texto dos PDFs enviados e gera um resumo estruturado em **18 
 ## Requisitos
 
 - Node.js 18+
-- Chave de API da OpenAI
+- Chave de API do **Google Gemini**
 
 ## Instalação
 
@@ -47,7 +47,7 @@ npm install
 
 # Configurar variáveis de ambiente
 cp .env.example .env.local
-# Edite .env.local e adicione sua OPENAI_API_KEY
+# Edite .env.local e adicione sua GEMINI_API_KEY
 ```
 
 ## Configuração
@@ -55,14 +55,14 @@ cp .env.example .env.local
 Crie o arquivo `.env.local` na raiz do projeto:
 
 ```env
-OPENAI_API_KEY=sk-sua-chave-aqui
-OPENAI_MODEL=gpt-4.1
+GEMINI_API_KEY=AIza-sua-chave-aqui
+GEMINI_MODEL=gemini-2.0-flash
 ```
 
 | Variável | Obrigatória | Descrição |
 |----------|-------------|-----------|
-| `OPENAI_API_KEY` | Sim | Chave da API OpenAI |
-| `OPENAI_MODEL` | Não | Modelo usado na análise (padrão: `gpt-4.1`) |
+| `GEMINI_API_KEY` | Sim | Chave da API Gemini ([obter aqui](https://aistudio.google.com/apikey)) |
+| `GEMINI_MODEL` | Não | Modelo usado na análise (padrão: `gemini-2.0-flash`) |
 
 ## Uso
 
@@ -94,8 +94,8 @@ npm run dev
 
    | Nome | Valor |
    |------|-------|
-   | `OPENAI_API_KEY` | `sk-sua-chave-da-openai` |
-   | `OPENAI_MODEL` | `gpt-4.1` (opcional) |
+   | `GEMINI_API_KEY` | sua chave `AIza...` do Google AI Studio |
+   | `GEMINI_MODEL` | `gemini-2.0-flash` (opcional) |
 
 6. Clique em **Deploy**
 7. Após o deploy, acesse a URL gerada (ex.: `https://app-licitacoes.vercel.app`)
@@ -113,7 +113,7 @@ vercel
 # - Directory: ./
 
 # Adicione a variável de ambiente:
-vercel env add OPENAI_API_KEY
+vercel env add GEMINI_API_KEY
 
 # Deploy em produção:
 vercel --prod
@@ -123,8 +123,8 @@ vercel --prod
 
 - **Sem login/Supabase:** o app funciona direto, sem autenticação
 - **Timeout da análise:** editais grandes podem demorar. O plano Hobby tem limite de **10 segundos** por função serverless; análises longas podem falhar. No plano Pro, o timeout pode chegar a **60 segundos** (já configurado em `vercel.json`)
-- **Chave OpenAI:** configure sempre em *Environment Variables* da Vercel, nunca no código
-- **Custo OpenAI:** cada análise consome tokens da sua conta OpenAI
+- **Chave Gemini:** configure sempre em *Environment Variables* da Vercel, nunca no código
+- **Custo Gemini:** cada análise consome tokens da sua conta Google
 
 ## Limitações
 
@@ -136,7 +136,7 @@ vercel --prod
 
 - [Next.js 15](https://nextjs.org/) (App Router)
 - [Tailwind CSS 4](https://tailwindcss.com/)
-- [OpenAI API](https://platform.openai.com/)
+- [Google Gemini API](https://ai.google.dev/)
 - [pdf-parse](https://www.npmjs.com/package/pdf-parse)
 - [docx](https://www.npmjs.com/package/docx) — exportação Word
 - [pdfmake](https://pdfmake.github.io/docs/) — exportação PDF

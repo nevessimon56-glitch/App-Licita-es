@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import {
   ANALYSIS_SYSTEM_PROMPT,
   type AnalysisResponse,
@@ -6,7 +6,17 @@ import {
 } from "./analysis-prompt";
 import { buildDocumentContext, validateDocuments } from "./pdf";
 
-const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? "gpt-4.1";
+const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+
+function getApiKey(): string {
+  const key = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
+  if (!key) {
+    throw new Error(
+      "GEMINI_API_KEY não configurada. Obtenha em https://aistudio.google.com/apikey e defina na Vercel ou no .env.local"
+    );
+  }
+  return key;
+}
 
 export async function analyzeDocuments(
   documents: UploadedDocument[]
@@ -16,14 +26,7 @@ export async function analyzeDocuments(
     throw new Error(validationError);
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "OPENAI_API_KEY não configurada. Defina a variável de ambiente no arquivo .env.local"
-    );
-  }
-
-  const openai = new OpenAI({ apiKey });
+  const apiKey = getApiKey();
   const context = buildDocumentContext(documents);
 
   const userMessage = `Analise integralmente os documentos abaixo e produza o resumo executivo conforme as instruções.
@@ -33,17 +36,36 @@ ${documents.map((d) => `- ${d.name} [${d.type}] — ${d.pageCount} páginas`).jo
 
 ${context}`;
 
-  const completion = await openai.chat.completions.create({
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
     model: DEFAULT_MODEL,
-    temperature: 0.1,
-    messages: [
-      { role: "system", content: ANALYSIS_SYSTEM_PROMPT },
-      { role: "user", content: userMessage },
-    ],
+    systemInstruction: ANALYSIS_SYSTEM_PROMPT,
+    generationConfig: {
+      temperature: 0.1,
+    },
   });
 
-  const analysis = completion.choices[0]?.message?.content;
-  if (!analysis) {
+  let result;
+  try {
+    result = await model.generateContent(userMessage);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("429") || message.toLowerCase().includes("quota")) {
+      throw new Error(
+        "Limite de uso da API Gemini atingido. Verifique seu plano em https://aistudio.google.com"
+      );
+    }
+    if (message.includes("403") || message.toLowerCase().includes("api key")) {
+      throw new Error(
+        "Chave GEMINI_API_KEY inválida ou sem permissão. Verifique em https://aistudio.google.com/apikey"
+      );
+    }
+    throw new Error(`Erro na API Gemini: ${message}`);
+  }
+
+  const analysis = result.response.text();
+
+  if (!analysis?.trim()) {
     throw new Error("A IA não retornou conteúdo para a análise.");
   }
 
@@ -55,7 +77,7 @@ ${context}`;
       pageCount: doc.pageCount,
       charCount: doc.text.length,
     })),
-    model: completion.model,
+    model: DEFAULT_MODEL,
     generatedAt: new Date().toISOString(),
   };
 }
