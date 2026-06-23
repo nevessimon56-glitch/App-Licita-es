@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import { FileText, Clock, Cpu } from "lucide-react";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
 import { ANALYSIS_SECTIONS } from "@/lib/analysis-prompt";
+import { ExportButtons } from "./ExportButtons";
 
 interface Props {
   result: AnalysisResponse;
@@ -48,6 +49,13 @@ export function AnalysisResult({ result }: Props) {
         </div>
 
         {/* Section index */}
+        <div className="mt-5 pt-4 border-t border-slate-100">
+          <p className="text-xs font-medium text-slate-500 mb-3">
+            Exportar análise
+          </p>
+          <ExportButtons result={result} />
+        </div>
+
         <div className="mt-5 pt-4 border-t border-slate-100">
           <p className="text-xs font-medium text-slate-500 mb-2">
             Tópicos analisados ({ANALYSIS_SECTIONS.length})

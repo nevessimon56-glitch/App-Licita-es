@@ -7,7 +7,6 @@ import {
   X,
   Loader2,
   AlertCircle,
-  Download,
   Scale,
   ChevronDown,
 } from "lucide-react";
@@ -117,17 +116,6 @@ export function AnalyzerApp() {
       clearInterval(stepInterval);
       setLoading(false);
     }
-  };
-
-  const handleExport = () => {
-    if (!result) return;
-    const blob = new Blob([result.analysis], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `analise-licitacao-${new Date().toISOString().slice(0, 10)}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   return (
@@ -265,15 +253,6 @@ export function AnalyzerApp() {
                 </>
               )}
             </button>
-            {result && (
-              <button
-                onClick={handleExport}
-                className="inline-flex items-center gap-2 px-5 py-3 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors"
-              >
-                <Download className="w-5 h-5" />
-                Exportar Markdown
-              </button>
-            )}
           </div>
 
           {loading && (

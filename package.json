@@ -9,10 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "docx": "^9.5.0",
     "lucide-react": "^0.511.0",
     "next": "^15.3.2",
     "openai": "^4.103.0",
     "pdf-parse": "^1.1.1",
+    "pdfmake": "^0.2.20",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
@@ -23,6 +25,7 @@
     "@tailwindcss/postcss": "^4.1.7",
     "@types/node": "^22.15.21",
     "@types/pdf-parse": "^1.1.5",
+    "@types/pdfmake": "^0.2.11",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
     "eslint": "^9.27.0",

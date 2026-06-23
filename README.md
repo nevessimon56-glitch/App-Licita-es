@@ -27,8 +27,8 @@ O sistema extrai o texto dos PDFs enviados e gera um resumo estruturado em **18 
   16. Riscos para o fornecedor
   17. Checklist para participação
   18. Conclusão
-- Exportação do resultado em Markdown
-- Interface responsiva e profissional
+- Exportação do resultado em **PDF**, **Word (.docx)** e Markdown
+- Interface responsiva e profissional (sem login)
 
 ## Requisitos
 
@@ -77,7 +77,54 @@ npm run dev
 2. Confirme ou ajuste o tipo de cada documento
 3. Clique em **Analisar licitação**
 4. Aguarde a geração do resumo executivo
-5. Exporte em Markdown, se necessário
+5. Exporte em **PDF**, **Word** ou Markdown
+
+## Deploy na Vercel
+
+### Passo a passo
+
+1. Acesse [vercel.com](https://vercel.com) e faça login com sua conta GitHub
+2. Clique em **Add New Project**
+3. Importe o repositório `App-Licita-es` (ou o nome do seu fork)
+4. A Vercel detecta automaticamente o Next.js — **não altere** as configurações de build:
+   - **Framework Preset:** Next.js
+   - **Build Command:** `npm run build`
+   - **Output Directory:** (padrão)
+5. Em **Environment Variables**, adicione:
+
+   | Nome | Valor |
+   |------|-------|
+   | `OPENAI_API_KEY` | `sk-sua-chave-da-openai` |
+   | `OPENAI_MODEL` | `gpt-4.1` (opcional) |
+
+6. Clique em **Deploy**
+7. Após o deploy, acesse a URL gerada (ex.: `https://app-licitacoes.vercel.app`)
+
+### Deploy via CLI (alternativa)
+
+```bash
+npm i -g vercel
+vercel login
+vercel
+
+# Na primeira vez, siga as perguntas:
+# - Link to existing project? No
+# - Project name: app-licitacoes
+# - Directory: ./
+
+# Adicione a variável de ambiente:
+vercel env add OPENAI_API_KEY
+
+# Deploy em produção:
+vercel --prod
+```
+
+### Observações importantes para a Vercel
+
+- **Sem login/Supabase:** o app funciona direto, sem autenticação
+- **Timeout da análise:** editais grandes podem demorar. O plano Hobby tem limite de **10 segundos** por função serverless; análises longas podem falhar. No plano Pro, o timeout pode chegar a **60 segundos** (já configurado em `vercel.json`)
+- **Chave OpenAI:** configure sempre em *Environment Variables* da Vercel, nunca no código
+- **Custo OpenAI:** cada análise consome tokens da sua conta OpenAI
 
 ## Limitações
 
@@ -91,6 +138,8 @@ npm run dev
 - [Tailwind CSS 4](https://tailwindcss.com/)
 - [OpenAI API](https://platform.openai.com/)
 - [pdf-parse](https://www.npmjs.com/package/pdf-parse)
+- [docx](https://www.npmjs.com/package/docx) — exportação Word
+- [pdfmake](https://pdfmake.github.io/docs/) — exportação PDF
 - [react-markdown](https://github.com/remarkjs/react-markdown)
 
 ## Scripts
@@ -113,10 +162,14 @@ src/
 │   └── page.tsx
 ├── components/
 │   ├── AnalyzerApp.tsx        # Interface principal
-│   └── AnalysisResult.tsx     # Exibição do resultado
+│   ├── AnalysisResult.tsx     # Exibição do resultado
+│   └── ExportButtons.tsx      # Botões PDF / Word / Markdown
 └── lib/
     ├── analysis-prompt.ts     # Prompt e estrutura dos 18 tópicos
     ├── analyze.ts             # Integração com OpenAI
+    ├── export-pdf.ts          # Geração de PDF
+    ├── export-word.ts         # Geração de Word
+    ├── markdown-blocks.ts     # Parser de markdown para export
     └── pdf.ts                 # Extração de texto de PDF
 ```
 
