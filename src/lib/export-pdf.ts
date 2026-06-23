@@ -291,10 +291,13 @@ export async function exportAnalysisToPdf(result: AnalysisResponse): Promise<voi
     ],
   };
 
+  const prefix =
+    result.mode === "resumido" ? "resumo-edital-resumido" : "resumo-edital-completo";
+
   return new Promise((resolve, reject) => {
     try {
       const pdf = pdfMake.createPdf(docDefinition);
-      pdf.download(`${buildExportFilename()}.pdf`, () => resolve());
+      pdf.download(`${buildExportFilename(prefix)}.pdf`, () => resolve());
     } catch (error) {
       reject(error);
     }

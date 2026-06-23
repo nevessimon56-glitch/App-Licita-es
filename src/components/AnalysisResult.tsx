@@ -1,7 +1,8 @@
 "use client";
 
-import { FileText, Clock, Cpu } from "lucide-react";
+import { FileText, Clock, Cpu, Layers } from "lucide-react";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
+import { MODE_LABELS } from "@/lib/analysis-prompt";
 import { ExportButtons } from "./ExportButtons";
 import { DocumentView } from "./DocumentView";
 
@@ -20,10 +21,14 @@ export function AnalysisResult({ result }: Props) {
           <ExportButtons result={result} />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-slate-600">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-slate-600">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-blue-700 shrink-0" />
             <span>{generatedDate}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-blue-700 shrink-0" />
+            <span>{MODE_LABELS[result.mode].title}</span>
           </div>
           <div className="flex items-center gap-2">
             <Cpu className="w-4 h-4 text-blue-700 shrink-0" />

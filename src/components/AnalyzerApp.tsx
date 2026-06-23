@@ -9,9 +9,12 @@ import {
   AlertCircle,
   Scale,
   ChevronDown,
+  FileStack,
+  Zap,
 } from "lucide-react";
 import { ResultsTabs } from "./ResultsTabs";
-import type { AnalysisResponse } from "@/lib/analysis-prompt";
+import type { AnalysisMode, AnalysisResponse } from "@/lib/analysis-prompt";
+import { MODE_LABELS } from "@/lib/analysis-prompt";
 
 export type DocumentType = "edital" | "termo_referencia" | "anexo" | "outro";
 
@@ -45,6 +48,7 @@ export function AnalyzerApp() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResponse | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("completo");
 
   const addFiles = useCallback((incoming: FileList | File[]) => {
     const pdfFiles = Array.from(incoming).filter((f) =>
@@ -103,6 +107,7 @@ export function AnalyzerApp() {
         formData.append("files", entry.file);
         formData.append("types", entry.type);
       });
+      formData.append("mode", analysisMode);
 
       const response = await fetch("/api/analyze", {
         method: "POST",
@@ -242,6 +247,50 @@ export function AnalyzerApp() {
             </div>
           )}
 
+          <div className="mt-6">
+            <p className="text-sm font-medium text-slate-700 mb-3">
+              Tipo de resumo
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(
+                Object.entries(MODE_LABELS) as [
+                  AnalysisMode,
+                  (typeof MODE_LABELS)[AnalysisMode],
+                ][]
+              ).map(([mode, info]) => {
+                const selected = analysisMode === mode;
+                const Icon = mode === "completo" ? FileStack : Zap;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setAnalysisMode(mode)}
+                    disabled={loading}
+                    className={`text-left p-4 rounded-xl border-2 transition-all ${
+                      selected
+                        ? "border-blue-600 bg-blue-50 ring-1 ring-blue-600"
+                        : "border-slate-200 hover:border-slate-300 bg-white"
+                    } disabled:opacity-50`}
+                  >
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Icon
+                        className={`w-5 h-5 ${selected ? "text-blue-700" : "text-slate-500"}`}
+                      />
+                      <span
+                        className={`font-semibold text-sm ${selected ? "text-blue-900" : "text-slate-800"}`}
+                      >
+                        {info.title}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      {info.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               onClick={handleAnalyze}
@@ -268,8 +317,10 @@ export function AnalyzerApp() {
                 {LOADING_STEPS[loadingStep]}
               </p>
               <p className="text-xs text-blue-600 mt-1">
-                Tempo decorrido: {elapsed}s — Editais grandes podem levar 1 a 4
-                minutos. A análise usa verificação automática de completude.
+                Tempo decorrido: {elapsed}s —{" "}
+                {analysisMode === "resumido"
+                  ? "Resumo objetivo, costuma ser mais rápido."
+                  : "Versão completa pode levar 1 a 4 minutos."}
               </p>
             </div>
           )}

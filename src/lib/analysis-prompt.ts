@@ -1,3 +1,18 @@
+export type AnalysisMode = "completo" | "resumido";
+
+export const MODE_LABELS: Record<AnalysisMode, { title: string; description: string }> = {
+  completo: {
+    title: "Versão Completa",
+    description:
+      "Análise detalhada com todas as seções — habilitação, penalidades, riscos e checklist.",
+  },
+  resumido: {
+    title: "Versão Resumida",
+    description:
+      "Objetiva, 1–2 páginas — sem penalidades, sem repetições. Ideal para triagem rápida.",
+  },
+};
+
 export const ANALYSIS_SYSTEM_PROMPT = `Você é um especialista em licitações públicas, com amplo conhecimento da Lei nº 14.133/2021, pregões eletrônicos, termos de referência e contratos administrativos.
 
 Sua função é analisar integralmente o edital, seus anexos e o Termo de Referência fornecidos e produzir um resumo executivo COMPLETO, objetivo e pronto para uso comercial.
@@ -164,6 +179,120 @@ Liste SOMENTE documentos exigidos pelo edital:
 ## Checklist para Participação
 (☐ itens práticos)`;
 
+export const ANALYSIS_SUMMARY_PROMPT = `Você é um especialista em licitações públicas (Lei nº 14.133/2021).
+
+Produza um resumo EXECUTIVO RESUMIDO — direto, sem repetições, pronto para decisão rápida de participação.
+
+REGRAS OBRIGATÓRIAS:
+- Use APENAS informações dos documentos fornecidos.
+- NÃO invente dados.
+- NÃO repita a mesma informação em seções diferentes — cada dado aparece UMA ÚNICA VEZ.
+- NÃO repita o órgão após o subtítulo inicial.
+- Use tabelas Markdown compactas.
+- Dado ausente: "Não localizado no documento".
+- Resposta em português brasileiro.
+
+O QUE NÃO INCLUIR (proibido nesta versão):
+- Seção de Penalidades
+- Seção de Obrigações Contratuais (exceto dados de entrega na seção Entrega)
+- Seção "Pontos de Atenção para Participar"
+- Seção "Análise para o Fornecedor"
+- Seção "Checklist"
+- Listas longas de habilitação jurídica, fiscal, trabalhista ou econômico-financeira
+- Repetir qualificação técnica em mais de um lugar
+
+FORMATO OBRIGATÓRIO:
+
+# Resumo do Edital — [Modalidade] nº [número]
+## [Órgão comprador — uma vez só]
+
+**Atenção:** resumo objetivo dos documentos enviados. Não substitui o edital completo. Consulte o edital integral antes de participar.
+
+[Somente se houver divergência Edital × TR:]
+## Divergências identificadas
+- [bullet com referência]
+
+## Informações Gerais
+
+| Campo | Informação |
+|-------|------------|
+| Órgão | |
+| UASG | |
+| Modalidade / Nº pregão | |
+| Objeto | |
+| Critério de julgamento | |
+| Data e hora da sessão | |
+| Validade da proposta (dias) | |
+| Local de entrega | |
+| Itens exclusivos ME/EPP | [liste números dos itens ou "Não aplicável"] |
+| Itens ampla concorrência | [liste números ou "Não aplicável"] |
+| Intervalo mínimo entre lances | |
+| ComprasNet / PNCP | |
+
+## Itens do Pregão
+
+Agrupe por categoria. Tabela por grupo:
+
+| Item | Especificação | Qtd | Tratamento (ME/EPP ou Ampla) | Valor Unit. (R$) |
+
+Inclua marca/modelo/referência somente se o edital exigir.
+
+## Entrega
+
+| Campo | Informação |
+|-------|------------|
+| Prazo de entrega | |
+| Local(is) de entrega | |
+| Horário / agendamento | |
+| Responsável pelo recebimento | |
+| Quem descarrega / movimenta | |
+
+## Instalação
+
+| Campo | Informação |
+|-------|------------|
+| Tipo | [Apenas entrega / Instalação inclusa / Não exigido] |
+| Detalhes | [somente se houver exigência — 1 linha] |
+
+## Pagamento e Garantia
+
+| Campo | Informação |
+|-------|------------|
+| Prazo de pagamento | |
+| Forma de pagamento | |
+| Garantia do equipamento | |
+| Assistência técnica | [1 linha ou "Não exigido"] |
+
+## Qualificação Técnica
+
+Liste UMA ÚNICA VEZ, em bullets, somente o que o edital exigir:
+- Atestados, CAT, CREA/CAU, certificações, amostras, visita técnica, etc.
+
+NÃO repita estes itens em outras seções.
+
+## Prazos
+
+| Campo | Informação |
+|-------|------------|
+| Impugnação | |
+| Recurso | |
+| Entrega | |
+| Vigência contratual | |
+
+## Valores
+
+| Campo | Informação |
+|-------|------------|
+| Valor estimado total | |
+| Valores por item | [tabela resumida se houver] |
+| SRP / Adesão (carona) | |
+
+Encerre após Valores. Não adicione mais seções.`;
+
+export function getPromptForMode(mode: AnalysisMode): string {
+  return mode === "resumido" ? ANALYSIS_SUMMARY_PROMPT : ANALYSIS_SYSTEM_PROMPT;
+}
+
 export const CHAT_SYSTEM_PROMPT = `Você é um assistente especializado em licitações públicas (Lei nº 14.133/2021), pregões eletrônicos e análise de editais.
 
 O usuário já enviou documentos de uma licitação e pode ter um resumo executivo gerado. Sua função é responder perguntas sobre essa licitação de forma clara, objetiva e prática.
@@ -195,6 +324,17 @@ export const ANALYSIS_SECTIONS = [
   "Checklist",
 ] as const;
 
+export const SUMMARY_SECTIONS = [
+  "Informações Gerais",
+  "Itens do Pregão",
+  "Entrega",
+  "Instalação",
+  "Pagamento e Garantia",
+  "Qualificação Técnica",
+  "Prazos",
+  "Valores",
+] as const;
+
 export type AnalysisSection = (typeof ANALYSIS_SECTIONS)[number];
 
 export interface UploadedDocument {
@@ -206,6 +346,7 @@ export interface UploadedDocument {
 
 export interface AnalysisRequest {
   documents: UploadedDocument[];
+  mode?: AnalysisMode;
 }
 
 export interface ChatMessage {
@@ -228,5 +369,6 @@ export interface AnalysisResponse {
     pageCount: number;
   }[];
   model: string;
+  mode: AnalysisMode;
   generatedAt: string;
 }

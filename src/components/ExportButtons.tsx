@@ -18,7 +18,9 @@ export function ExportButtons({ result }: Props) {
     setError(null);
     try {
       const blob = new Blob([result.analysis], { type: "text/markdown;charset=utf-8" });
-      downloadBlob(blob, `${buildExportFilename()}.md`);
+      const prefix =
+        result.mode === "resumido" ? "resumo-edital-resumido" : "resumo-edital-completo";
+      downloadBlob(blob, `${buildExportFilename(prefix)}.md`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao exportar Markdown.");
     } finally {

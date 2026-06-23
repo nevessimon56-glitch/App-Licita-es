@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeDocuments } from "@/lib/analyze";
 import { extractTextFromPdf } from "@/lib/pdf";
-import type { UploadedDocument } from "@/lib/analysis-prompt";
+import type { UploadedDocument, AnalysisMode } from "@/lib/analysis-prompt";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -28,6 +28,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const rawMode = (formData.get("mode") as string) ?? "completo";
+    const mode: AnalysisMode =
+      rawMode === "resumido" ? "resumido" : "completo";
+
     const documents: UploadedDocument[] = await Promise.all(
       files.map(async (file, i) => {
         const rawType = types[i] ?? "outro";
@@ -48,10 +52,10 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    const result = await analyzeDocuments(documents);
+    const result = await analyzeDocuments(documents, mode);
 
     console.info(
-      `[analyze] ${documents.length} PDF(s) — ${((Date.now() - startedAt) / 1000).toFixed(1)}s — modelo ${result.model}`
+      `[analyze:${mode}] ${documents.length} PDF(s) — ${((Date.now() - startedAt) / 1000).toFixed(1)}s — modelo ${result.model}`
     );
 
     return NextResponse.json(result);

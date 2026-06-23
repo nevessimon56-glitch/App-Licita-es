@@ -310,5 +310,7 @@ export async function exportAnalysisToWord(result: AnalysisResponse): Promise<vo
   });
 
   const blob = await Packer.toBlob(doc);
-  downloadBlob(blob, `${buildExportFilename()}.docx`);
+  const prefix =
+    result.mode === "resumido" ? "resumo-edital-resumido" : "resumo-edital-completo";
+  downloadBlob(blob, `${buildExportFilename(prefix)}.docx`);
 }
