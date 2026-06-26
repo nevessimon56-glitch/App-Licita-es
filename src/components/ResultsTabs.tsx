@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BarChart3, Mail, MessageCircle } from "lucide-react";
 import { AnalysisResult } from "./AnalysisResult";
 import { ChatPanel } from "./ChatPanel";
@@ -15,6 +15,16 @@ interface Props {
 
 export function ResultsTabs({ result }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("analysis");
+  const [analysisMarkdown, setAnalysisMarkdown] = useState(result.analysis);
+
+  useEffect(() => {
+    setAnalysisMarkdown(result.analysis);
+  }, [result]);
+
+  const editableResult: AnalysisResponse = {
+    ...result,
+    analysis: analysisMarkdown,
+  };
 
   return (
     <div className="space-y-4">
@@ -55,11 +65,14 @@ export function ResultsTabs({ result }: Props) {
       </div>
 
       {activeTab === "analysis" ? (
-        <AnalysisResult result={result} />
+        <AnalysisResult
+          result={editableResult}
+          onAnalysisChange={setAnalysisMarkdown}
+        />
       ) : activeTab === "email" ? (
-        <EmailPanel result={result} />
+        <EmailPanel result={editableResult} />
       ) : (
-        <ChatPanel result={result} />
+        <ChatPanel result={editableResult} />
       )}
     </div>
   );

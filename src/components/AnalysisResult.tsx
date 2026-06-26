@@ -4,13 +4,14 @@ import { FileText, Clock, Cpu, Layers } from "lucide-react";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
 import { MODE_LABELS } from "@/lib/analysis-prompt";
 import { ExportButtons } from "./ExportButtons";
-import { DocumentView } from "./DocumentView";
+import { EditableDocumentView } from "./EditableDocumentView";
 
 interface Props {
   result: AnalysisResponse;
+  onAnalysisChange: (analysis: string) => void;
 }
 
-export function AnalysisResult({ result }: Props) {
+export function AnalysisResult({ result, onAnalysisChange }: Props) {
   const generatedDate = new Date(result.generatedAt).toLocaleString("pt-BR");
 
   return (
@@ -20,6 +21,12 @@ export function AnalysisResult({ result }: Props) {
           <h2 className="text-lg font-semibold text-slate-800">Resumo gerado</h2>
           <ExportButtons result={result} />
         </div>
+
+        <p className="text-sm text-slate-600 mb-4">
+          Seções marcadas como <strong>Editável</strong> podem ser corrigidas
+          diretamente quando o edital não trouxer a informação ou a análise
+          errar algum campo.
+        </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-slate-600">
           <div className="flex items-center gap-2">
@@ -55,7 +62,10 @@ export function AnalysisResult({ result }: Props) {
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="doc-report-page p-6 md:p-10 lg:p-12">
-          <DocumentView markdown={result.analysis} />
+          <EditableDocumentView
+            markdown={result.analysis}
+            onMarkdownChange={onAnalysisChange}
+          />
         </div>
       </div>
     </section>

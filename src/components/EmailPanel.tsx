@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, Mail, RotateCcw } from "lucide-react";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
 import { buildEmailFromAnalysis } from "@/lib/email-template";
@@ -17,6 +17,14 @@ export function EmailPanel({ result }: Props) {
   const [emailText, setEmailText] = useState(initialEmail);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailDirty, setEmailDirty] = useState(false);
+  const lastAnalysisRef = useRef(result.analysis);
+
+  useEffect(() => {
+    if (emailDirty || lastAnalysisRef.current === result.analysis) return;
+    lastAnalysisRef.current = result.analysis;
+    setEmailText(buildEmailFromAnalysis(result.analysis));
+  }, [result.analysis, emailDirty]);
 
   const handleCopy = async () => {
     setError(null);
@@ -30,7 +38,9 @@ export function EmailPanel({ result }: Props) {
   };
 
   const handleRestore = () => {
-    setEmailText(initialEmail);
+    const rebuilt = buildEmailFromAnalysis(result.analysis);
+    setEmailText(rebuilt);
+    setEmailDirty(false);
     setError(null);
   };
 
@@ -78,7 +88,10 @@ export function EmailPanel({ result }: Props) {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <textarea
           value={emailText}
-          onChange={(event) => setEmailText(event.target.value)}
+          onChange={(event) => {
+            setEmailText(event.target.value);
+            setEmailDirty(true);
+          }}
           spellCheck={false}
           className="w-full min-h-[420px] p-6 md:p-8 text-sm md:text-base leading-relaxed text-slate-800 font-mono bg-slate-50 border-0 resize-y focus:outline-none focus:ring-2 focus:ring-blue-200"
           aria-label="Texto do e-mail padrão"
