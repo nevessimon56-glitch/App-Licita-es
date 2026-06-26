@@ -2,10 +2,20 @@ import type { TDocumentDefinitions, Content, TableCell } from "pdfmake/interface
 import type { AnalysisResponse } from "./analysis-prompt";
 import {
   buildExportFilename,
+  downloadBlob,
   extractDocumentMeta,
   parseDocumentMarkdown,
   type DocumentBlock,
 } from "./document-parser";
+
+const ROBOTO_FONTS = {
+  Roboto: {
+    normal: "Roboto-Regular.ttf",
+    bold: "Roboto-Medium.ttf",
+    italics: "Roboto-Italic.ttf",
+    bolditalics: "Roboto-MediumItalic.ttf",
+  },
+} as const;
 
 const COLORS = {
   primary: "#1a365d",
@@ -22,11 +32,25 @@ async function getPdfMake() {
   const pdfMakeModule = await import("pdfmake/build/pdfmake");
   const pdfFontsModule = await import("pdfmake/build/vfs_fonts");
 
-  const pdfMake = pdfMakeModule.default;
-  const vfs = pdfFontsModule.default as { pdfMake?: { vfs: Record<string, string> } };
+  const pdfMake = (pdfMakeModule.default ?? pdfMakeModule) as typeof pdfMakeModule.default & {
+    addVirtualFileSystem?: (vfs: Record<string, string>) => void;
+  };
+  const vfs = (pdfFontsModule.default ?? pdfFontsModule) as Record<string, string>;
 
-  pdfMake.vfs = vfs.pdfMake?.vfs ?? (vfs as unknown as Record<string, string>);
-  return pdfMake;
+  if (!vfs || typeof vfs !== "object" || !("Roboto-Regular.ttf" in vfs)) {
+    throw new Error("Não foi possível carregar as fontes do PDF.");
+  }
+
+  if (typeof pdfMake.addVirtualFileSystem === "function") {
+    pdfMake.addVirtualFileSystem(vfs);
+  }
+
+  return { pdfMake, vfs };
+}
+
+function sanitizePdfText(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value).replace(/\0/g, "");
 }
 
 function keyValueTable(rows: { label: string; value: string }[]): Content {
@@ -34,8 +58,8 @@ function keyValueTable(rows: { label: string; value: string }[]): Content {
     table: {
       widths: [130, "*"],
       body: rows.map((row) => [
-        { text: row.label, style: "kvLabel" },
-        { text: row.value, style: "kvValue" },
+        { text: sanitizePdfText(row.label), style: "kvLabel" },
+        { text: sanitizePdfText(row.value), style: "kvValue" },
       ]),
     },
     layout: {
@@ -53,13 +77,13 @@ function keyValueTable(rows: { label: string; value: string }[]): Content {
 
 function dataTable(headers: string[], rows: string[][]): Content {
   const headerRow: TableCell[] = headers.map((h) => ({
-    text: h,
+    text: sanitizePdfText(h),
     style: "tableHeader",
     fillColor: COLORS.headerBg,
   }));
 
   const bodyRows: TableCell[][] = rows.map((row) =>
-    row.map((cell) => ({ text: cell, style: "tableCell" }))
+    row.map((cell) => ({ text: sanitizePdfText(cell), style: "tableCell" }))
   );
 
   const colCount = headers.length;
@@ -102,16 +126,16 @@ function blocksToPdfContent(blocks: DocumentBlock[]): Content[] {
           skipTitle = false;
           break;
         }
-        content.push({ text: block.text, style: "docTitle", margin: [0, 20, 0, 4] });
+        content.push({ text: sanitizePdfText(block.text), style: "docTitle", margin: [0, 20, 0, 4] });
         break;
 
       case "subtitle":
-        content.push({ text: block.text, style: "docSubtitle", margin: [0, 0, 0, 16] });
+        content.push({ text: sanitizePdfText(block.text), style: "docSubtitle", margin: [0, 0, 0, 16] });
         break;
 
       case "section":
         content.push({
-          text: block.text,
+          text: sanitizePdfText(block.text),
           style: "sectionTitle",
           margin: [0, 18, 0, 10],
         });
@@ -119,7 +143,7 @@ function blocksToPdfContent(blocks: DocumentBlock[]): Content[] {
 
       case "subsection":
         content.push({
-          text: block.text,
+          text: sanitizePdfText(block.text),
           style: "subsectionTitle",
           margin: [0, 12, 0, 8],
         });
@@ -146,7 +170,7 @@ function blocksToPdfContent(blocks: DocumentBlock[]): Content[] {
 
       case "paragraph":
         content.push({
-          text: block.text,
+          text: sanitizePdfText(block.text),
           style: block.variant === "attention" ? "attention" : "body",
           margin: [0, 0, 0, 10],
         });
@@ -154,7 +178,7 @@ function blocksToPdfContent(blocks: DocumentBlock[]): Content[] {
 
       case "list":
         content.push({
-          ul: block.items.map((item) => `• ${item}`),
+          ul: block.items.map((item) => `• ${sanitizePdfText(item)}`),
           style: "body",
           margin: [0, 0, 0, 12],
         });
@@ -162,7 +186,7 @@ function blocksToPdfContent(blocks: DocumentBlock[]): Content[] {
 
       case "checkbox":
         content.push({
-          ul: block.items.map((item) => `☐ ${item}`),
+          ul: block.items.map((item) => `☐ ${sanitizePdfText(item)}`),
           style: "body",
           margin: [0, 0, 0, 12],
         });
@@ -174,7 +198,7 @@ function blocksToPdfContent(blocks: DocumentBlock[]): Content[] {
 }
 
 export async function exportAnalysisToPdf(result: AnalysisResponse): Promise<void> {
-  const pdfMake = await getPdfMake();
+  const { pdfMake, vfs } = await getPdfMake();
   const blocks = parseDocumentMarkdown(result.analysis);
   const meta = extractDocumentMeta(blocks);
   const generatedDate = new Date(result.generatedAt).toLocaleDateString("pt-BR");
@@ -263,9 +287,9 @@ export async function exportAnalysisToPdf(result: AnalysisResponse): Promise<voi
       ],
     }),
     content: [
-      { text: meta.title, style: "docTitle" },
+      { text: sanitizePdfText(meta.title), style: "docTitle" },
       ...(meta.subtitle
-        ? [{ text: meta.subtitle, style: "docSubtitle", margin: [0, 2, 0, 14] as [number, number, number, number] }]
+        ? [{ text: sanitizePdfText(meta.subtitle), style: "docSubtitle", margin: [0, 2, 0, 14] as [number, number, number, number] }]
         : [{ text: "", margin: [0, 0, 0, 10] as [number, number, number, number] }]),
       {
         canvas: [
@@ -294,10 +318,25 @@ export async function exportAnalysisToPdf(result: AnalysisResponse): Promise<voi
   const prefix =
     result.mode === "resumido" ? "resumo-edital-resumido" : "resumo-edital-completo";
 
+  const filename = `${buildExportFilename(prefix)}.pdf`;
+
   return new Promise((resolve, reject) => {
     try {
-      const pdf = pdfMake.createPdf(docDefinition);
-      pdf.download(`${buildExportFilename(prefix)}.pdf`, () => resolve());
+      const pdf = pdfMake.createPdf(
+        docDefinition,
+        undefined,
+        ROBOTO_FONTS,
+        vfs
+      );
+
+      pdf.getBlob((blob) => {
+        try {
+          downloadBlob(blob, filename);
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      });
     } catch (error) {
       reject(error);
     }
