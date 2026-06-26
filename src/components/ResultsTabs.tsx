@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, MessageCircle } from "lucide-react";
+import { BarChart3, Mail, MessageCircle } from "lucide-react";
 import { AnalysisResult } from "./AnalysisResult";
 import { ChatPanel } from "./ChatPanel";
+import { EmailPanel } from "./EmailPanel";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
 
-type Tab = "analysis" | "chat";
+type Tab = "analysis" | "email" | "chat";
 
 interface Props {
   result: AnalysisResponse;
@@ -30,6 +31,17 @@ export function ResultsTabs({ result }: Props) {
           Resumo
         </button>
         <button
+          onClick={() => setActiveTab("email")}
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === "email"
+              ? "bg-white text-blue-800 shadow-sm"
+              : "text-slate-600 hover:text-slate-800"
+          }`}
+        >
+          <Mail className="w-4 h-4" />
+          E-mail
+        </button>
+        <button
           onClick={() => setActiveTab("chat")}
           className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             activeTab === "chat"
@@ -44,6 +56,8 @@ export function ResultsTabs({ result }: Props) {
 
       {activeTab === "analysis" ? (
         <AnalysisResult result={result} />
+      ) : activeTab === "email" ? (
+        <EmailPanel result={result} />
       ) : (
         <ChatPanel result={result} />
       )}
