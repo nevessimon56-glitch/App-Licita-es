@@ -4,9 +4,32 @@ import { useState } from "react";
 import { Download, FileText, FileType, Loader2 } from "lucide-react";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
 import { buildExportFilename, downloadBlob } from "@/lib/document-parser";
+import { exportAnalysisToPdf } from "@/lib/export-pdf";
+import { isChunkLoadError, recoverFromChunkError } from "@/lib/chunk-error";
 
 interface Props {
   result: AnalysisResponse;
+}
+
+async function loadWordExporter() {
+  try {
+    return await import("@/lib/export-word");
+  } catch (error) {
+    if (recoverFromChunkError(error)) {
+      throw new Error("Atualizando a página com a versão mais recente...");
+    }
+    throw error;
+  }
+}
+
+function getExportErrorMessage(error: unknown, fallback: string): string {
+  if (recoverFromChunkError(error)) {
+    return "Atualizando a página com a versão mais recente...";
+  }
+  if (isChunkLoadError(error)) {
+    return "Há uma versão nova do app. Atualize a página (F5) e tente novamente.";
+  }
+  return error instanceof Error ? error.message : fallback;
 }
 
 export function ExportButtons({ result }: Props) {
@@ -22,7 +45,7 @@ export function ExportButtons({ result }: Props) {
         result.mode === "resumido" ? "resumo-edital-resumido" : "resumo-edital-completo";
       downloadBlob(blob, `${buildExportFilename(prefix)}.md`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao exportar Markdown.");
+      setError(getExportErrorMessage(err, "Erro ao exportar Markdown."));
     } finally {
       setExporting(null);
     }
@@ -32,10 +55,10 @@ export function ExportButtons({ result }: Props) {
     setExporting("word");
     setError(null);
     try {
-      const { exportAnalysisToWord } = await import("@/lib/export-word");
+      const { exportAnalysisToWord } = await loadWordExporter();
       await exportAnalysisToWord(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao exportar Word.");
+      setError(getExportErrorMessage(err, "Erro ao exportar Word."));
     } finally {
       setExporting(null);
     }
@@ -45,10 +68,9 @@ export function ExportButtons({ result }: Props) {
     setExporting("pdf");
     setError(null);
     try {
-      const { exportAnalysisToPdf } = await import("@/lib/export-pdf");
       await exportAnalysisToPdf(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao exportar PDF.");
+      setError(getExportErrorMessage(err, "Erro ao exportar PDF."));
     } finally {
       setExporting(null);
     }
