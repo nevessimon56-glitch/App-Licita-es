@@ -319,8 +319,22 @@ export async function exportAnalysisToPdf(result: AnalysisResponse): Promise<voi
     result.mode === "resumido" ? "resumo-edital-resumido" : "resumo-edital-completo";
 
   const filename = `${buildExportFilename(prefix)}.pdf`;
+  const PDF_EXPORT_TIMEOUT_MS = 120_000;
 
   return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      reject(
+        new Error(
+          "A geração do PDF demorou demais. Tente novamente ou exporte em Word."
+        )
+      );
+    }, PDF_EXPORT_TIMEOUT_MS);
+
+    const finish = (action: () => void) => {
+      window.clearTimeout(timeout);
+      action();
+    };
+
     try {
       const pdf = pdfMake.createPdf(
         docDefinition,
@@ -332,13 +346,13 @@ export async function exportAnalysisToPdf(result: AnalysisResponse): Promise<voi
       pdf.getBlob((blob) => {
         try {
           downloadBlob(blob, filename);
-          resolve();
+          finish(resolve);
         } catch (error) {
-          reject(error);
+          finish(() => reject(error));
         }
       });
     } catch (error) {
-      reject(error);
+      finish(() => reject(error));
     }
   });
 }
