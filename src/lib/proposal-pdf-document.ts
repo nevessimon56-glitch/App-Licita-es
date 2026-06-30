@@ -18,7 +18,6 @@ import {
 } from "./proposal-export-styles";
 import {
   STANDARD_DECLARACOES_PROPOSTA,
-  STANDARD_DIGITAL_SIGNATURE_NOTICE,
 } from "./proposal-template";
 import {
   PROPOSAL_TABLE_HEADERS,
@@ -212,7 +211,7 @@ export function buildProposalPdfDefinition(
     buildItemsTable(pkg),
     ...buildConditionsSection(pkg),
     ...buildDeclarationsSection(),
-    ...buildSignatureContent(company, STANDARD_DIGITAL_SIGNATURE_NOTICE),
+    ...buildSignatureContent(company),
   ];
 
   return {
@@ -253,7 +252,7 @@ export function buildDeclarationsPdfDefinition(
     );
   }
 
-  content.push(...buildSignatureContent(company, STANDARD_DIGITAL_SIGNATURE_NOTICE));
+  content.push(...buildSignatureContent(company));
 
   return {
     pageSize: "A4",

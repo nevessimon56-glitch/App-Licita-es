@@ -23,7 +23,6 @@ import {
 } from "./proposal-export-styles";
 import {
   STANDARD_DECLARACOES_PROPOSTA,
-  STANDARD_DIGITAL_SIGNATURE_NOTICE,
 } from "./proposal-template";
 import {
   PROPOSAL_TABLE_HEADERS,
@@ -33,11 +32,7 @@ import {
   getValorTotalExtenso,
   type ProposalItemRow,
 } from "./proposal-layout";
-import {
-  formatDigitalSignatureStamp,
-  formatProposalSignatureDate,
-  isTorquatoCompany,
-} from "./proposal-export-layout";
+import { formatProposalSignatureDate } from "./proposal-export-layout";
 import type { CompanyProfile, ProposalPackage } from "./proposal-types";
 
 const COLORS = PROPOSAL_EXPORT_COLORS;
@@ -364,55 +359,26 @@ function buildSignatureBlock(company: CompanyProfile): Paragraph[] {
   const nascimento = company.representanteNascimento
     ? `, DATA DE NASCIMENTO: ${company.representanteNascimento}`
     : "";
-  const cpfDigits = company.representanteCpf.replace(/\D/g, "");
-  const nome = company.representanteNome.toUpperCase();
 
-  const paragraphs: Paragraph[] = [
+  return [
     bodyParagraph(formatProposalSignatureDate(company.assinaturaCidade), {
       alignment: AlignmentType.CENTER,
       size: FONT.table,
       spacingBefore: 100,
       spacingAfter: 80,
     }),
-    labeledParagraph("NOME:", company.representanteNome),
-    bodyParagraph(`RG SOB Nº ${company.representanteRg}`, { size: FONT.table, spacingAfter: 30 }),
-    bodyParagraph(`CPF SOB Nº ${company.representanteCpf}`, { size: FONT.table, spacingAfter: 80 }),
     grayBarParagraph(
       "CASO A EMPRESA VENHA SAGRAR-SE VENCEDOR(A) DO CERTAME, SEGUEM OS DADOS DO(A) REPRESENTANTE LEGAL PARA ASSINAR O CONTRATO:",
       0
     ),
-    bodyParagraph(nome, { size: FONT.table, spacingAfter: 30 }),
-    bodyParagraph(company.representanteRg, { size: FONT.table, spacingAfter: 30 }),
-    bodyParagraph(company.representanteCpf, { size: FONT.table, spacingAfter: 30 }),
+    labeledParagraph("NOME:", company.representanteNome),
+    bodyParagraph(`RG SOB Nº ${company.representanteRg}`, { size: FONT.table, spacingAfter: 30 }),
+    bodyParagraph(`CPF SOB Nº ${company.representanteCpf}`, { size: FONT.table, spacingAfter: 30 }),
     bodyParagraph(
       `CARGO: ${company.representanteCargo.toUpperCase()}${nascimento}, ENDEREÇO: ${company.representanteEndereco.toUpperCase()}`,
       { size: FONT.table, lineSpacing: 240, spacingAfter: 80 }
     ),
   ];
-
-  if (isTorquatoCompany(company)) {
-    paragraphs.push(
-      bodyParagraph(`${nome}:${cpfDigits}`, {
-        bold: true,
-        size: FONT.totalAmount,
-        spacingAfter: 40,
-      }),
-      bodyParagraph(
-        `Assinado de forma digital por ${nome}:${cpfDigits} Dados: ${formatDigitalSignatureStamp()}`,
-        { size: FONT.tableSmall, alignment: AlignmentType.RIGHT, spacingAfter: 80 }
-      )
-    );
-  }
-
-  paragraphs.push(
-    bodyParagraph(STANDARD_DIGITAL_SIGNATURE_NOTICE, {
-      size: FONT.tableSmall,
-      alignment: AlignmentType.CENTER,
-      lineSpacing: 260,
-    })
-  );
-
-  return paragraphs;
 }
 
 export function buildProposalWordDocument(
@@ -465,10 +431,6 @@ export function buildDeclarationsWordDocument(
     labeledParagraph("OBJETO:", pkg.metadata.objeto),
     labeledParagraph("PROCESSO:", pkg.metadata.processo),
     bodyParagraph(pkg.metadata.referencia.toUpperCase(), { size: FONT.table, spacingAfter: 80 }),
-    bodyParagraph(STANDARD_DIGITAL_SIGNATURE_NOTICE, {
-      size: FONT.tableSmall,
-      spacingAfter: 100,
-    }),
   ];
 
   for (const section of pkg.declaracoesHabilitacao) {

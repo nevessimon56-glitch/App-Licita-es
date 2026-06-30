@@ -30,20 +30,11 @@ function sanitize(value: unknown): string {
   return String(value).replace(/\0/g, "");
 }
 
-export function isTorquatoCompany(company: CompanyProfile): boolean {
-  return company.id.startsWith("torquato");
-}
-
 export function formatProposalSignatureDate(city: string, date = new Date()): string {
   const day = date.getDate();
   const month = MESES[date.getMonth()];
   const year = date.getFullYear();
   return `DATA: ${city.toUpperCase()} - ${day} DE ${month} DE ${year}.`;
-}
-
-export function formatDigitalSignatureStamp(date = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())} -03'00'`;
 }
 
 export function buildCompanyHeaderContent(company: CompanyProfile): Content[] {
@@ -167,23 +158,21 @@ export function buildMetadataContent(pkg: ProposalPackage, company: CompanyProfi
   ];
 }
 
-export function buildSignatureContent(
-  company: CompanyProfile,
-  digitalNotice: string
-): Content[] {
+export function buildSignatureContent(company: CompanyProfile): Content[] {
   const nascimento = company.representanteNascimento
     ? `, DATA DE NASCIMENTO: ${company.representanteNascimento}`
     : "";
-  const cpfDigits = company.representanteCpf.replace(/\D/g, "");
-  const nome = company.representanteNome.toUpperCase();
 
-  const content: Content[] = [
+  return [
     {
       text: formatProposalSignatureDate(company.assinaturaCidade),
       fontSize: FONT.table,
       alignment: "center",
       margin: [0, 8, 0, 6],
     },
+    sectionGrayBar(
+      "CASO A EMPRESA VENHA SAGRAR-SE VENCEDOR(A) DO CERTAME, SEGUEM OS DADOS DO(A) REPRESENTANTE LEGAL PARA ASSINAR O CONTRATO:"
+    ),
     labeledLine("NOME:", company.representanteNome),
     {
       text: `RG SOB Nº ${company.representanteRg}`,
@@ -193,25 +182,7 @@ export function buildSignatureContent(
     {
       text: `CPF SOB Nº ${company.representanteCpf}`,
       fontSize: FONT.table,
-      margin: [0, 0, 0, 6],
-    },
-    sectionGrayBar(
-      "CASO A EMPRESA VENHA SAGRAR-SE VENCEDOR(A) DO CERTAME, SEGUEM OS DADOS DO(A) REPRESENTANTE LEGAL PARA ASSINAR O CONTRATO:"
-    ),
-    {
-      text: nome,
-      fontSize: FONT.table,
-      margin: [0, 0, 0, 2],
-    },
-    {
-      text: company.representanteRg,
-      fontSize: FONT.table,
-      margin: [0, 0, 0, 2],
-    },
-    {
-      text: company.representanteCpf,
-      fontSize: FONT.table,
-      margin: [0, 0, 0, 2],
+      margin: [0, 0, 0, 4],
     },
     {
       text: `CARGO: ${company.representanteCargo.toUpperCase()}${nascimento}, ENDEREÇO: ${company.representanteEndereco.toUpperCase()}`,
@@ -220,39 +191,6 @@ export function buildSignatureContent(
       margin: [0, 0, 0, 8],
     },
   ];
-
-  if (isTorquatoCompany(company)) {
-    content.push({
-      columns: [
-        {
-          width: "*",
-          text: `${nome}:${cpfDigits}`,
-          fontSize: FONT.totalAmount,
-          bold: true,
-          margin: [0, 4, 8, 0],
-        },
-        {
-          width: "auto",
-          text: `Assinado de forma digital por ${nome}:${cpfDigits} Dados: ${formatDigitalSignatureStamp()}`,
-          fontSize: FONT.tableSmall,
-          alignment: "right",
-          lineHeight: 1.1,
-          margin: [0, 8, 0, 0],
-        },
-      ],
-      margin: [0, 0, 0, 8],
-    });
-  }
-
-  content.push({
-    text: digitalNotice,
-    fontSize: FONT.tableSmall,
-    alignment: "center",
-    lineHeight: 1.1,
-    margin: [0, 4, 0, 0],
-  });
-
-  return content;
 }
 
 export { labeledLine, sectionGrayBar, tableLayout };

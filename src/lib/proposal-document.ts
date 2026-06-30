@@ -7,15 +7,10 @@ import {
   getValorTotalExtenso,
 } from "./proposal-layout";
 import { shouldShowLote } from "./proposal-export-styles";
-import {
-  formatDigitalSignatureStamp,
-  formatProposalSignatureDate,
-  isTorquatoCompany,
-} from "./proposal-export-layout";
+import { formatProposalSignatureDate } from "./proposal-export-layout";
 import {
   STANDARD_CHECKLIST_CATEGORIES,
   STANDARD_DECLARACOES_PROPOSTA,
-  STANDARD_DIGITAL_SIGNATURE_NOTICE,
   STANDARD_TABLE_HEADER,
 } from "./proposal-template";
 import type { CompanyProfile, ProposalItem, ProposalPackage } from "./proposal-types";
@@ -41,31 +36,16 @@ function buildRepresentativeSignatureLines(company: CompanyProfile): string[] {
   const nascimento = company.representanteNascimento
     ? `, DATA DE NASCIMENTO: ${company.representanteNascimento}`
     : "";
-  const cpfDigits = company.representanteCpf.replace(/\D/g, "");
-  const nome = company.representanteNome.toUpperCase();
 
-  const lines = [
+  return [
     formatProposalSignatureDate(company.assinaturaCidade),
-    `NOME: ${nome}`,
-    `RG SOB Nº ${company.representanteRg}`,
-    `CPF SOB Nº ${company.representanteCpf}`,
     "",
     "CASO A EMPRESA VENHA SAGRAR-SE VENCEDOR(A) DO CERTAME, SEGUEM OS DADOS DO(A) REPRESENTANTE LEGAL PARA ASSINAR O CONTRATO:",
-    nome,
-    company.representanteRg,
-    company.representanteCpf,
+    `NOME: ${company.representanteNome.toUpperCase()}`,
+    `RG SOB Nº ${company.representanteRg}`,
+    `CPF SOB Nº ${company.representanteCpf}`,
     `CARGO: ${company.representanteCargo.toUpperCase()}${nascimento}, ENDEREÇO: ${company.representanteEndereco.toUpperCase()}`,
   ];
-
-  if (isTorquatoCompany(company)) {
-    lines.push(
-      "",
-      `${nome}:${cpfDigits}`,
-      `Assinado de forma digital por ${nome}:${cpfDigits} Dados: ${formatDigitalSignatureStamp()}`
-    );
-  }
-
-  return lines;
 }
 
 export function buildProposalDocumentText(
@@ -125,8 +105,6 @@ export function buildProposalDocumentText(
     STANDARD_DECLARACOES_PROPOSTA,
     "",
     ...buildRepresentativeSignatureLines(company),
-    "",
-    STANDARD_DIGITAL_SIGNATURE_NOTICE,
   );
 
   return lines.join("\n");
@@ -144,8 +122,6 @@ export function buildDeclarationsDocumentText(
     `OBJETO: ${pkg.metadata.objeto.toUpperCase()}`,
     `PROCESSO: ${pkg.metadata.processo.toUpperCase()}`,
     pkg.metadata.referencia.toUpperCase(),
-    "",
-    STANDARD_DIGITAL_SIGNATURE_NOTICE,
     "",
   ];
 
