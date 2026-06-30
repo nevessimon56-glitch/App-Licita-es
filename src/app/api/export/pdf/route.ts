@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
 import { buildExportFilename } from "@/lib/document-parser";
+import { buildContentDisposition } from "@/lib/proposal-export-filename";
 import { buildPdfDocumentDefinition } from "@/lib/pdf-document";
 import { generatePdfBuffer } from "@/lib/pdf-generate-server";
 
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": buildContentDisposition(filename),
         "Cache-Control": "no-store",
       },
     });

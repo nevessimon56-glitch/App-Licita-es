@@ -1,3 +1,5 @@
+import { sanitizeDownloadFilename } from "./proposal-export-filename";
+
 export type DocumentBlock =
   | { type: "title"; text: string }
   | { type: "subtitle"; text: string }
@@ -200,10 +202,11 @@ export function buildExportFilename(prefix = "resumo-edital"): string {
 }
 
 export function downloadBlob(blob: Blob, filename: string) {
+  const safeName = sanitizeDownloadFilename(filename) || "download";
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = filename;
+  anchor.download = safeName;
   anchor.click();
   URL.revokeObjectURL(url);
 }

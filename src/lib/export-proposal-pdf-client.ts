@@ -1,6 +1,6 @@
 import type { TDocumentDefinitions } from "pdfmake/interfaces";
 import { downloadBlob } from "./document-parser";
-import { buildProposalExportFilename, type ProposalExportKind } from "./proposal-export-filename";
+import { buildProposalExportFilename, sanitizeDownloadFilename, type ProposalExportKind } from "./proposal-export-filename";
 import {
   buildDeclarationsPdfDefinition,
   buildProposalPdfDefinition,
@@ -47,7 +47,9 @@ export async function exportProposalPdfInBrowser(
 ): Promise<void> {
   const pdfMake = await loadPdfMake();
   const docDefinition = buildDocDefinition(pkg, company, kind);
-  const filename = `${buildProposalExportFilename(pkg.metadata.orgao, kind)}.pdf`;
+  const filename = sanitizeDownloadFilename(
+    `${buildProposalExportFilename(pkg.metadata.orgao, kind)}.pdf`
+  );
 
   await new Promise<void>((resolve, reject) => {
     try {

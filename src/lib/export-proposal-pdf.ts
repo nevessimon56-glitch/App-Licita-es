@@ -1,4 +1,4 @@
-import { buildProposalExportFilename, type ProposalExportKind } from "./proposal-export-filename";
+import { buildProposalExportFilename, sanitizeDownloadFilename, type ProposalExportKind } from "./proposal-export-filename";
 import type { CompanyProfile, ProposalPackage } from "./proposal-types";
 
 const PDF_EXPORT_TIMEOUT_MS = 90_000;
@@ -19,7 +19,9 @@ async function exportProposalPdfOnServer(
   kind: ProposalExportKind
 ): Promise<void> {
   const { downloadBlob } = await import("./document-parser");
-  const filename = `${buildProposalExportFilename(pkg.metadata.orgao, kind)}.pdf`;
+  const filename = sanitizeDownloadFilename(
+    `${buildProposalExportFilename(pkg.metadata.orgao, kind)}.pdf`
+  );
 
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), PDF_EXPORT_TIMEOUT_MS);
