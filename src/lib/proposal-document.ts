@@ -8,6 +8,11 @@ import {
 } from "./proposal-layout";
 import { shouldShowLote } from "./proposal-export-styles";
 import {
+  formatDigitalSignatureStamp,
+  formatProposalSignatureDate,
+  isTorquatoCompany,
+} from "./proposal-export-layout";
+import {
   STANDARD_CHECKLIST_CATEGORIES,
   STANDARD_DECLARACOES_PROPOSTA,
   STANDARD_DIGITAL_SIGNATURE_NOTICE,
@@ -36,19 +41,31 @@ function buildRepresentativeSignatureLines(company: CompanyProfile): string[] {
   const nascimento = company.representanteNascimento
     ? `, DATA DE NASCIMENTO: ${company.representanteNascimento}`
     : "";
+  const cpfDigits = company.representanteCpf.replace(/\D/g, "");
+  const nome = company.representanteNome.toUpperCase();
 
-  return [
-    `DATA: ${company.assinaturaCidade.toUpperCase()} - [DIA] DE [MÊS] DE [ANO].`,
-    `NOME: ${company.representanteNome.toUpperCase()}`,
+  const lines = [
+    formatProposalSignatureDate(company.assinaturaCidade),
+    `NOME: ${nome}`,
     `RG SOB Nº ${company.representanteRg}`,
     `CPF SOB Nº ${company.representanteCpf}`,
     "",
     "CASO A EMPRESA VENHA SAGRAR-SE VENCEDOR(A) DO CERTAME, SEGUEM OS DADOS DO(A) REPRESENTANTE LEGAL PARA ASSINAR O CONTRATO:",
-    company.representanteNome.toUpperCase(),
+    nome,
     company.representanteRg,
     company.representanteCpf,
     `CARGO: ${company.representanteCargo.toUpperCase()}${nascimento}, ENDEREÇO: ${company.representanteEndereco.toUpperCase()}`,
   ];
+
+  if (isTorquatoCompany(company)) {
+    lines.push(
+      "",
+      `${nome}:${cpfDigits}`,
+      `Assinado de forma digital por ${nome}:${cpfDigits} Dados: ${formatDigitalSignatureStamp()}`
+    );
+  }
+
+  return lines;
 }
 
 export function buildProposalDocumentText(
@@ -59,15 +76,11 @@ export function buildProposalDocumentText(
   const lines: string[] = [
     ...buildProposalCompanyHeader(company),
     "",
-    pkg.metadata.referencia.toUpperCase(),
-    "",
     "PROPOSTA COMERCIAL DE PREÇOS",
     "",
     `ORGÃO: ${pkg.metadata.orgao.toUpperCase()}`,
     `OBJETO: ${pkg.metadata.objeto.toUpperCase()}`,
     `PROCESSO: ${pkg.metadata.processo.toUpperCase()}`,
-    "",
-    "INFORMAÇÕES:",
     `ENDEREÇO DO ÓRGÃO: ${pkg.metadata.enderecoOrgao.toUpperCase()}`,
     `CRITERIO DE JULGAMENTO: ${pkg.metadata.criterioJulgamento.toUpperCase()}`,
     `HORARIO: ${pkg.metadata.horarioSessao.toUpperCase()}`,
@@ -111,9 +124,9 @@ export function buildProposalDocumentText(
     "DECLARAÇÕES DA PROPOSTA:",
     STANDARD_DECLARACOES_PROPOSTA,
     "",
-    STANDARD_DIGITAL_SIGNATURE_NOTICE,
+    ...buildRepresentativeSignatureLines(company),
     "",
-    ...buildRepresentativeSignatureLines(company)
+    STANDARD_DIGITAL_SIGNATURE_NOTICE,
   );
 
   return lines.join("\n");

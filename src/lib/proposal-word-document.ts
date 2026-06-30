@@ -33,6 +33,11 @@ import {
   getValorTotalExtenso,
   type ProposalItemRow,
 } from "./proposal-layout";
+import {
+  formatDigitalSignatureStamp,
+  formatProposalSignatureDate,
+  isTorquatoCompany,
+} from "./proposal-export-layout";
 import type { CompanyProfile, ProposalPackage } from "./proposal-types";
 
 const COLORS = PROPOSAL_EXPORT_COLORS;
@@ -107,19 +112,42 @@ function grayBarParagraph(title: string, spacingBefore = 100): Paragraph {
 }
 
 function buildCompanyHeaderBlock(company: CompanyProfile): Paragraph[] {
-  const lines = buildProposalCompanyHeader(company);
-  return lines
-    .filter((line) => line.trim())
-    .map((line, index) => {
-      const isName = index === 0;
-      return bodyParagraph(line, {
+  const paragraphs: Paragraph[] = [];
+  const lines = buildProposalCompanyHeader(company).filter(Boolean);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const isName = i === 0;
+
+    if (line.startsWith("ENDEREÇO:") && line.includes("MUNICÍPIO:")) {
+      const splitAt = line.indexOf("MUNICÍPIO:");
+      paragraphs.push(
+        bodyParagraph(line.slice(0, splitAt).trim(), {
+          alignment: AlignmentType.CENTER,
+          size: FONT.companyDetail,
+          spacingAfter: 20,
+        }),
+        bodyParagraph(line.slice(splitAt).trim(), {
+          alignment: AlignmentType.CENTER,
+          size: FONT.companyDetail,
+          spacingAfter: 20,
+        })
+      );
+      continue;
+    }
+
+    paragraphs.push(
+      bodyParagraph(line, {
         alignment: AlignmentType.CENTER,
         bold: isName,
         size: isName ? FONT.companyName : FONT.companyDetail,
         spacingAfter: isName ? 40 : 20,
         lineSpacing: 240,
-      });
-    });
+      })
+    );
+  }
+
+  return paragraphs;
 }
 
 function marcaModeloParagraph(row: ProposalItemRow): Paragraph {
@@ -140,40 +168,51 @@ function marcaModeloParagraph(row: ProposalItemRow): Paragraph {
   });
 }
 
-function buildInfoTable(pkg: ProposalPackage): Table {
-  const rows = [
-    ["ENDEREÇO DO ÓRGÃO", pkg.metadata.enderecoOrgao],
-    ["CRITERIO DE JULGAMENTO", pkg.metadata.criterioJulgamento],
-    ["HORARIO", pkg.metadata.horarioSessao],
-  ] as const;
+function buildBankBarTable(company: CompanyProfile): Table {
+  const bankDetails = `${company.banco.toUpperCase()} - AGENCIA: ${company.agencia} - CONTA CORRENTE: ${company.conta}`;
 
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: rows.map(
-      ([label, value]) =>
-        new TableRow({
-          children: [
-            new TableCell({
-              width: { size: 28, type: WidthType.PERCENTAGE },
-              borders: cellBorders(),
-              margins: compactMargins(),
-              children: [bodyParagraph(label, { bold: true, size: FONT.tableSmall })],
-            }),
-            new TableCell({
-              width: { size: 72, type: WidthType.PERCENTAGE },
-              borders: cellBorders(),
-              margins: compactMargins(),
-              children: [
-                bodyParagraph(formatConditionForExport(value), {
-                  size: FONT.tableSmall,
-                  lineSpacing: 240,
-                }),
-              ],
-            }),
-          ],
-        })
-    ),
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 22, type: WidthType.PERCENTAGE },
+            borders: cellBorders(),
+            margins: compactMargins(),
+            shading: { type: ShadingType.CLEAR, fill: "C0C0C0" },
+            children: [bodyParagraph("DADOS BANCARIOS:", { bold: true, size: FONT.table })],
+          }),
+          new TableCell({
+            width: { size: 78, type: WidthType.PERCENTAGE },
+            borders: cellBorders(),
+            margins: compactMargins(),
+            shading: { type: ShadingType.CLEAR, fill: COLORS.headerBg },
+            children: [bodyParagraph(bankDetails, { size: FONT.table })],
+          }),
+        ],
+      }),
+    ],
   });
+}
+
+function buildMetadataBlock(pkg: ProposalPackage, company: CompanyProfile): (Paragraph | Table)[] {
+  return [
+    labeledParagraph("ORGÃO:", pkg.metadata.orgao),
+    labeledParagraph("OBJETO:", pkg.metadata.objeto),
+    labeledParagraph("PROCESSO:", pkg.metadata.processo),
+    labeledParagraph("ENDEREÇO DO ÓRGÃO:", pkg.metadata.enderecoOrgao),
+    labeledParagraph("CRITERIO DE JULGAMENTO:", pkg.metadata.criterioJulgamento),
+    new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      spacing: { after: 80, line: 240 },
+      children: [
+        textRun("HORARIO: ", { bold: true, size: FONT.table }),
+        textRun(formatConditionForExport(pkg.metadata.horarioSessao), { size: FONT.table }),
+      ],
+    }),
+    buildBankBarTable(company),
+  ];
 }
 
 function buildItemsTable(pkg: ProposalPackage): Table {
@@ -325,40 +364,61 @@ function buildSignatureBlock(company: CompanyProfile): Paragraph[] {
   const nascimento = company.representanteNascimento
     ? `, DATA DE NASCIMENTO: ${company.representanteNascimento}`
     : "";
+  const cpfDigits = company.representanteCpf.replace(/\D/g, "");
+  const nome = company.representanteNome.toUpperCase();
 
-  return [
-    bodyParagraph(
-      `DATA: ${company.assinaturaCidade.toUpperCase()} - [DIA] DE [MÊS] DE [ANO].`,
-      { alignment: AlignmentType.CENTER, size: FONT.table, spacingBefore: 120 }
-    ),
+  const paragraphs: Paragraph[] = [
+    bodyParagraph(formatProposalSignatureDate(company.assinaturaCidade), {
+      alignment: AlignmentType.CENTER,
+      size: FONT.table,
+      spacingBefore: 100,
+      spacingAfter: 80,
+    }),
     labeledParagraph("NOME:", company.representanteNome),
     bodyParagraph(`RG SOB Nº ${company.representanteRg}`, { size: FONT.table, spacingAfter: 30 }),
     bodyParagraph(`CPF SOB Nº ${company.representanteCpf}`, { size: FONT.table, spacingAfter: 80 }),
-    bodyParagraph(
+    grayBarParagraph(
       "CASO A EMPRESA VENHA SAGRAR-SE VENCEDOR(A) DO CERTAME, SEGUEM OS DADOS DO(A) REPRESENTANTE LEGAL PARA ASSINAR O CONTRATO:",
-      { bold: true, size: FONT.tableSmall, spacingAfter: 60 }
+      0
     ),
-    bodyParagraph(company.representanteNome.toUpperCase(), { size: FONT.table, spacingAfter: 30 }),
+    bodyParagraph(nome, { size: FONT.table, spacingAfter: 30 }),
     bodyParagraph(company.representanteRg, { size: FONT.table, spacingAfter: 30 }),
     bodyParagraph(company.representanteCpf, { size: FONT.table, spacingAfter: 30 }),
     bodyParagraph(
       `CARGO: ${company.representanteCargo.toUpperCase()}${nascimento}, ENDEREÇO: ${company.representanteEndereco.toUpperCase()}`,
       { size: FONT.table, lineSpacing: 240, spacingAfter: 80 }
     ),
+  ];
+
+  if (isTorquatoCompany(company)) {
+    paragraphs.push(
+      bodyParagraph(`${nome}:${cpfDigits}`, {
+        bold: true,
+        size: FONT.totalAmount,
+        spacingAfter: 40,
+      }),
+      bodyParagraph(
+        `Assinado de forma digital por ${nome}:${cpfDigits} Dados: ${formatDigitalSignatureStamp()}`,
+        { size: FONT.tableSmall, alignment: AlignmentType.RIGHT, spacingAfter: 80 }
+      )
+    );
+  }
+
+  paragraphs.push(
     bodyParagraph(STANDARD_DIGITAL_SIGNATURE_NOTICE, {
       size: FONT.tableSmall,
       alignment: AlignmentType.CENTER,
       lineSpacing: 260,
-    }),
-  ];
+    })
+  );
+
+  return paragraphs;
 }
 
 export function buildProposalWordDocument(
   pkg: ProposalPackage,
   company: CompanyProfile
 ): Document {
-  const bankLine = `DADOS BANCARIOS: ${company.banco.toUpperCase()} - AGENCIA: ${company.agencia} - CONTA CORRENTE: ${company.conta}`;
-
   return new Document({
     creator: "App Licitações",
     title: `Proposta ${pkg.metadata.orgao}`,
@@ -367,24 +427,14 @@ export function buildProposalWordDocument(
         properties: { page: { margin: PAGE_MARGINS } },
         children: [
           ...buildCompanyHeaderBlock(company),
-          bodyParagraph(pkg.metadata.referencia.toUpperCase(), {
-            alignment: AlignmentType.CENTER,
-            size: FONT.companyDetail,
-            spacingBefore: 80,
-            spacingAfter: 80,
-          }),
           bodyParagraph("PROPOSTA COMERCIAL DE PREÇOS", {
             alignment: AlignmentType.CENTER,
             bold: true,
             size: FONT.title,
+            spacingBefore: 80,
             spacingAfter: 120,
           }),
-          labeledParagraph("ORGÃO:", pkg.metadata.orgao),
-          labeledParagraph("OBJETO:", pkg.metadata.objeto),
-          labeledParagraph("PROCESSO:", pkg.metadata.processo),
-          grayBarParagraph("INFORMAÇÕES", 60),
-          buildInfoTable(pkg),
-          grayBarParagraph(bankLine, 80),
+          ...buildMetadataBlock(pkg, company),
           bodyParagraph("", { spacingAfter: 80 }),
           buildItemsTable(pkg),
           bodyParagraph("", { spacingAfter: 80 }),
