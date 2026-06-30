@@ -1,4 +1,3 @@
-import { downloadBlob } from "./document-parser";
 import { buildProposalExportFilename, type ProposalExportKind } from "./proposal-export-filename";
 import type { CompanyProfile, ProposalPackage } from "./proposal-types";
 
@@ -10,11 +9,16 @@ interface ProposalPdfExportBody {
   companyProfile: CompanyProfile;
 }
 
-export async function exportProposalDocumentToPdf(
+async function loadBrowserPdfExporter() {
+  return import("@/lib/export-proposal-pdf-client");
+}
+
+async function exportProposalPdfOnServer(
   pkg: ProposalPackage,
   company: CompanyProfile,
   kind: ProposalExportKind
 ): Promise<void> {
+  const { downloadBlob } = await import("./document-parser");
   const filename = `${buildProposalExportFilename(pkg.metadata.orgao, kind)}.pdf`;
 
   const controller = new AbortController();
@@ -35,10 +39,16 @@ export async function exportProposalDocumentToPdf(
     });
 
     if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      throw new Error(payload?.error ?? "Não foi possível gerar o PDF.");
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(payload?.error ?? "Não foi possível gerar o PDF no servidor.");
+      }
+      throw new Error(
+        `Servidor respondeu com erro ${response.status}. Tente novamente em alguns segundos.`
+      );
     }
 
     const blob = await response.blob();
@@ -50,12 +60,36 @@ export async function exportProposalDocumentToPdf(
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new Error(
-        "A geração do PDF demorou demais. Tente novamente ou exporte em Word."
+        "A geração do PDF demorou demais no servidor. Tente novamente."
       );
     }
     throw error;
   } finally {
     window.clearTimeout(timeout);
+  }
+}
+
+export async function exportProposalDocumentToPdf(
+  pkg: ProposalPackage,
+  company: CompanyProfile,
+  kind: ProposalExportKind
+): Promise<void> {
+  try {
+    const { exportProposalPdfInBrowser } = await loadBrowserPdfExporter();
+    await exportProposalPdfInBrowser(pkg, company, kind);
+  } catch (browserError) {
+    console.warn("PDF no navegador falhou, tentando servidor:", browserError);
+    try {
+      await exportProposalPdfOnServer(pkg, company, kind);
+    } catch (serverError) {
+      const browserMessage =
+        browserError instanceof Error ? browserError.message : "erro no navegador";
+      const serverMessage =
+        serverError instanceof Error ? serverError.message : "erro no servidor";
+      throw new Error(
+        `Não foi possível gerar o PDF. ${browserMessage} | Servidor: ${serverMessage}`
+      );
+    }
   }
 }
 

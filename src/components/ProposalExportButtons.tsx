@@ -110,7 +110,7 @@ export function ProposalExportButtons({ pkg, company, kind }: Props) {
           {kind === "proposta" ? "Proposta" : "Declaracoes"}{" "}
           {pkg.metadata.orgao || "Orgao"}
         </strong>
-        .pdf / .docx
+        .pdf / .docx — exportação <strong>gratuita</strong> (PDF gerado no navegador)
       </p>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
