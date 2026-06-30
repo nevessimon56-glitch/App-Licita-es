@@ -65,7 +65,7 @@ Foque nos itens de ar condicionado e equipamentos correlatos. Mantenha descri√ß√
   });
 
   const raw = extractJsonFromModelResponse(text);
-  const proposalPackage = normalizeProposalPackage(raw, model);
+  const proposalPackage = normalizeProposalPackage(raw, model, companyProfile);
 
   return { package: proposalPackage, companyProfile };
 }

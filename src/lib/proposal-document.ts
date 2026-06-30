@@ -1,4 +1,10 @@
 import type { CompanyProfile, ProposalItem, ProposalPackage } from "./proposal-types";
+import {
+  STANDARD_CHECKLIST_CATEGORIES,
+  STANDARD_DECLARACOES_PROPOSTA,
+  STANDARD_DIGITAL_SIGNATURE_NOTICE,
+  STANDARD_TABLE_HEADER,
+} from "./proposal-template";
 
 export function formatCurrencyBRL(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) {
@@ -29,22 +35,22 @@ export function getProposalGrandTotal(pkg: ProposalPackage): number {
   return pkg.itens.reduce((sum, item) => sum + (item.valorTotal ?? 0), 0);
 }
 
-function buildItemDescriptionLine(item: ProposalItem): string {
+function buildItemSpecificationColumn(item: ProposalItem): string {
   const parts = [item.unidade, item.codigo, item.descricao]
     .map((part) => part.trim())
     .filter(Boolean);
 
-  let line = parts.join(" - ");
+  let spec = parts.join(" - ").toUpperCase();
   if (item.descricaoComplementar.trim()) {
-    line += `\n${item.descricaoComplementar.trim()}`;
+    spec += `\n${item.descricaoComplementar.trim().toUpperCase()}`;
   }
-  return line.toUpperCase();
+  return spec;
 }
 
 function buildMarcaModeloLine(item: ProposalItem): string {
   const base = [item.fabricante, item.marcaModelo].filter(Boolean).join(" / ");
   if (!base) return "A INFORMAR";
-  return item.semInstalacao ? `${base} - SEM INSTALAÇÃO.` : base;
+  return item.semInstalacao ? `${base} - SEM INSTALAÇÃO.` : `${base.toUpperCase()}.`;
 }
 
 export function buildProposalDocumentText(
@@ -53,36 +59,36 @@ export function buildProposalDocumentText(
 ): string {
   const total = getProposalGrandTotal(pkg);
   const lines: string[] = [
-    company.razaoSocial,
+    company.razaoSocial.toUpperCase(),
     `CNPJ: ${company.cnpj}`,
     `INSCRIÇÃO ESTADUAL: ${company.inscricaoEstadual}`,
     `TELEFONE: ${company.telefone} - FAX: ${company.fax} - E-MAIL: ${company.email}`,
-    company.endereco,
-    `${company.municipio}, ESTADO: ${company.estado} - CEP: ${company.cep}`,
+    company.endereco.toUpperCase(),
+    `${company.municipio.toUpperCase()}, ESTADO: ${company.estado.toUpperCase()} - CEP: ${company.cep}`,
     "",
-    pkg.metadata.referencia,
+    pkg.metadata.referencia.toUpperCase(),
     "",
     "PROPOSTA COMERCIAL DE PREÇOS",
     "",
-    `À ${pkg.metadata.orgao}`,
-    pkg.metadata.objeto,
+    `À ${pkg.metadata.orgao.toUpperCase()}`,
+    pkg.metadata.objeto.toUpperCase(),
     "",
-    `ORGÃO: ${pkg.metadata.orgao}`,
-    `OBJETO: ${pkg.metadata.objeto}`,
-    `PROCESSO: ${pkg.metadata.processo}`,
-    `ENDEREÇO DO ÓRGÃO: ${pkg.metadata.enderecoOrgao}`,
-    `DADOS BANCARIOS: ${company.banco} - AGENCIA: ${company.agencia} - CONTA CORRENTE: ${company.conta}`,
-    `INFORMAÇÕES: HORARIO: ${pkg.metadata.horarioSessao}`,
-    `CRITERIO DE JULGAMENTO: ${pkg.metadata.criterioJulgamento}`,
+    `ORGÃO: ${pkg.metadata.orgao.toUpperCase()}`,
+    `OBJETO: ${pkg.metadata.objeto.toUpperCase()}`,
+    `PROCESSO: ${pkg.metadata.processo.toUpperCase()}`,
+    `ENDEREÇO DO ÓRGÃO: ${pkg.metadata.enderecoOrgao.toUpperCase()}`,
+    `DADOS BANCARIOS: ${company.banco.toUpperCase()} - AGENCIA: ${company.agencia} - CONTA CORRENTE: ${company.conta}`,
+    `INFORMAÇÕES: HORARIO: ${pkg.metadata.horarioSessao.toUpperCase()}`,
+    `CRITERIO DE JULGAMENTO: ${pkg.metadata.criterioJulgamento.toUpperCase()}`,
     "",
-    "ITEM | UNIDADE - CÓDIGO - ESPECIFICAÇÃO | QNT | FABRICANTE MARCA / MODELO | VALOR UNITARIO | VALOR TOTAL",
+    `ITEM | ${STANDARD_TABLE_HEADER} | QNT | FABRICANTE MARCA / MODELO | VALOR UNITARIO | VALOR TOTAL`,
   ];
 
   for (const item of pkg.itens) {
     lines.push(
       [
         item.numero,
-        buildItemDescriptionLine(item),
+        buildItemSpecificationColumn(item),
         String(item.quantidade),
         buildMarcaModeloLine(item),
         formatCurrencyBRL(item.valorUnitario),
@@ -93,38 +99,38 @@ export function buildProposalDocumentText(
 
   lines.push(
     "",
-    `${formatCurrencyBRL(total)}    VALOR TOTAL: ${pkg.valorTotalExtenso || "[PREENCHER POR EXTENSO]"}.`,
+    `${formatCurrencyBRL(total)}    VALOR TOTAL: ${(pkg.valorTotalExtenso || "[PREENCHER POR EXTENSO]").toUpperCase()}.`,
     "",
     "CONDIÇÕES COMERCIAIS DA PROPOSTA:",
-    `VALIDADE: ${pkg.condicoesComerciais.validade}`,
-    `GARANTIA: ${pkg.condicoesComerciais.garantia}`,
-    `ENTREGA: ${pkg.condicoesComerciais.entrega}`,
-    `VIGÊNCIA: ${pkg.condicoesComerciais.vigencia}`,
-    `PAGAMENTO: ${pkg.condicoesComerciais.pagamento}`,
+    `VALIDADE: ${pkg.condicoesComerciais.validade.toUpperCase()}`,
+    `GARANTIA: ${pkg.condicoesComerciais.garantia.toUpperCase()}`,
+    `ENTREGA: ${pkg.condicoesComerciais.entrega.toUpperCase()}`,
+    `VIGÊNCIA: ${pkg.condicoesComerciais.vigencia.toUpperCase()}`,
+    `PAGAMENTO: ${pkg.condicoesComerciais.pagamento.toUpperCase()}`,
     ""
   );
 
-  if (pkg.metadata.lote) {
-    lines.push(pkg.metadata.lote, "");
+  if (pkg.metadata.lote.trim()) {
+    lines.push(pkg.metadata.lote.toUpperCase(), "");
   }
 
   lines.push(
     "DECLARAÇÕES DA PROPOSTA:",
-    pkg.declaracoesProposta,
+    STANDARD_DECLARACOES_PROPOSTA,
     "",
-    "DOCUMENTO ASSINADO DIGITALMENTE, CONFORME LEI N. 14603/2020, QUE VERSA DA LEGALIDADE DA ASSINATURA DIGITAL, DISPENSANDO RECONHECIMENTO DE FIRMA EM CARTÓRIO.",
+    STANDARD_DIGITAL_SIGNATURE_NOTICE,
     "",
-    `${company.assinaturaCidade} - [DATA]`,
-    `DATA:`,
-    `NOME: ${company.representanteNome}`,
+    `${company.assinaturaCidade.toUpperCase()} - [DATA]`,
+    "DATA:",
+    `NOME: ${company.representanteNome.toUpperCase()}`,
     `RG SOB Nº ${company.representanteRg}`,
     `CPF SOB Nº ${company.representanteCpf}`,
     "",
     "CASO A EMPRESA VENHA SAGRAR-SE VENCEDOR(A) DO CERTAME, SEGUEM OS DADOS DO(A) REPRESENTANTE LEGAL PARA ASSINAR O CONTRATO:",
-    company.representanteNome,
+    company.representanteNome.toUpperCase(),
     company.representanteRg,
     company.representanteCpf,
-    `CARGO: ${company.representanteCargo}, DATA DE NASCIMENTO: ${company.representanteNascimento}, ENDEREÇO: ${company.representanteEndereco}`
+    `CARGO: ${company.representanteCargo.toUpperCase()}, DATA DE NASCIMENTO: ${company.representanteNascimento}, ENDEREÇO: ${company.representanteEndereco.toUpperCase()}`
   );
 
   return lines.join("\n");
@@ -135,57 +141,59 @@ export function buildDeclarationsDocumentText(
   company: CompanyProfile
 ): string {
   const lines: string[] = [
-    company.razaoSocial,
+    company.razaoSocial.toUpperCase(),
     `CNPJ: ${company.cnpj}`,
     `INSCRIÇÃO ESTADUAL: ${company.inscricaoEstadual}`,
-    `TELEFONE: ${company.telefone} - E-MAIL: ${company.email}`,
-    company.endereco,
-    `${company.municipio}, ${company.estado} - CEP: ${company.cep}`,
+    `TELEFONE: ${company.telefone} - FAX: ${company.fax} - E-MAIL: ${company.email}`,
+    company.endereco.toUpperCase(),
+    `${company.municipio.toUpperCase()}, ESTADO: ${company.estado.toUpperCase()} - CEP: ${company.cep}`,
     "",
     "DECLARAÇÕES",
-    `À ${pkg.metadata.orgao}`,
-    pkg.metadata.objeto,
-    pkg.metadata.referencia,
+    `À ${pkg.metadata.orgao.toUpperCase()}`,
+    pkg.metadata.objeto.toUpperCase(),
+    pkg.metadata.referencia.toUpperCase(),
     "",
-    "DOCUMENTO ASSINADO DIGITALMENTE, CONFORME LEI N. 14603/2020.",
+    STANDARD_DIGITAL_SIGNATURE_NOTICE,
     "",
   ];
 
   for (const section of pkg.declaracoesHabilitacao) {
-    lines.push(section.titulo, "", section.conteudo, "");
+    lines.push(section.titulo.toUpperCase(), "", section.conteudo, "");
   }
 
   lines.push(
-    `${company.assinaturaCidade} - [DATA]`,
-    `NOME: ${company.representanteNome}`,
+    `${company.assinaturaCidade.toUpperCase()} - [DATA]`,
+    "DATA:",
+    `NOME: ${company.representanteNome.toUpperCase()}`,
     `RG SOB Nº ${company.representanteRg}`,
-    `CPF SOB Nº ${company.representanteCpf}`
+    `CPF SOB Nº ${company.representanteCpf}`,
+    "",
+    "CASO A EMPRESA VENHA SAGRAR-SE VENCEDOR(A) DO CERTAME, SEGUEM OS DADOS DO(A) REPRESENTANTE LEGAL PARA ASSINAR O CONTRATO:",
+    company.representanteNome.toUpperCase(),
+    company.representanteRg,
+    company.representanteCpf,
+    `CARGO: ${company.representanteCargo.toUpperCase()}, DATA DE NASCIMENTO: ${company.representanteNascimento}, ENDEREÇO: ${company.representanteEndereco.toUpperCase()}`
   );
 
   return lines.join("\n");
 }
 
 export function buildChecklistText(pkg: ProposalPackage): string {
-  const lines = ["CHECK-LIST DE PARTICIPAÇÃO", ""];
-  let currentCategory = "";
+  const lines = ["CHECK-LIST DE PARTICIPAÇÃO — LAYOUT PADRÃO", ""];
 
-  for (const entry of pkg.checklist) {
-    if (entry.categoria !== currentCategory) {
-      currentCategory = entry.categoria;
-      lines.push("", `## ${currentCategory}`, "");
+  for (const category of STANDARD_CHECKLIST_CATEGORIES) {
+    const items = pkg.checklist.filter((entry) => entry.categoria === category);
+    if (!items.length) continue;
+
+    lines.push(category.toUpperCase(), "");
+    for (const entry of items) {
+      lines.push(`☐ ${entry.item.toUpperCase()}`);
+      if (entry.requisitos) {
+        lines.push(`   REQUISITOS: ${entry.requisitos.toUpperCase()}`);
+      }
     }
-    lines.push(`☐ ${entry.item}`);
-    if (entry.requisitos) {
-      lines.push(`   Requisitos: ${entry.requisitos}`);
-    }
+    lines.push("");
   }
 
-  if (pkg.metadata.tipoPregao) {
-    lines.push("", `Tipo de Pregão: ${pkg.metadata.tipoPregao}`);
-  }
-  if (pkg.metadata.enquadramento) {
-    lines.push(`Enquadramento: ${pkg.metadata.enquadramento}`);
-  }
-
-  return lines.join("\n");
+  return lines.join("\n").trimEnd();
 }

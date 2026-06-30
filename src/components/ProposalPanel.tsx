@@ -146,7 +146,8 @@ export function ProposalPanel({
               Propostas e Declarações
             </h2>
             <p className="text-sm text-slate-600 mt-1">
-              Edite preços, descrições e títulos dos produtos. Total atual:{" "}
+              Layout padrão fixo (proposta + declarações). Edite preços, itens e
+              dados da empresa. Total atual:{" "}
               <strong>{formatCurrencyBRL(grandTotal)}</strong>
             </p>
           </div>
@@ -314,11 +315,12 @@ export function ProposalPanel({
             ))}
           </div>
           <label className="proposal-field">
-            <span>Declarações da proposta (A, B, C)</span>
+            <span>Declarações da proposta (A, B, C) — layout fixo</span>
             <textarea
               rows={5}
               value={pkg.declaracoesProposta}
-              onChange={(e) => updatePackage({ declaracoesProposta: e.target.value })}
+              readOnly
+              className="bg-slate-100"
             />
           </label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -364,35 +366,24 @@ export function ProposalPanel({
 
       {subTab === "declaracoes" && (
         <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+          <p className="text-sm text-slate-600">
+            Declarações no formato padrão fixo (Anexo 2 ME/EPP + Anexo 4
+            Unificada). O texto é gerado automaticamente com os dados da empresa
+            e do edital.
+          </p>
           <div className="flex justify-end">
             <CopyButton text={declarationsText} label="Copiar declarações" />
           </div>
           {pkg.declaracoesHabilitacao.map((section, index) => (
             <div key={index} className="space-y-2">
-              <input
-                className="proposal-edit-inline font-semibold"
-                value={section.titulo}
-                onChange={(e) => {
-                  const declaracoesHabilitacao = [...pkg.declaracoesHabilitacao];
-                  declaracoesHabilitacao[index] = {
-                    ...section,
-                    titulo: e.target.value,
-                  };
-                  updatePackage({ declaracoesHabilitacao });
-                }}
-              />
+              <p className="font-semibold text-slate-800 uppercase text-sm">
+                {section.titulo}
+              </p>
               <textarea
-                className="proposal-preview-textarea"
+                className="proposal-preview-textarea bg-slate-50"
                 value={section.conteudo}
-                onChange={(e) => {
-                  const declaracoesHabilitacao = [...pkg.declaracoesHabilitacao];
-                  declaracoesHabilitacao[index] = {
-                    ...section,
-                    conteudo: e.target.value,
-                  };
-                  updatePackage({ declaracoesHabilitacao });
-                }}
-                rows={12}
+                readOnly
+                rows={14}
               />
             </div>
           ))}

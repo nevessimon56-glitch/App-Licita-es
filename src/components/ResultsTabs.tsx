@@ -8,6 +8,7 @@ import { EmailPanel } from "./EmailPanel";
 import { ProposalPanel } from "./ProposalPanel";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
 import { DEFAULT_COMPANY_PROFILE } from "@/lib/company-defaults";
+import { applyStandardProposalPackage } from "@/lib/proposal-template";
 import type { CompanyProfile, ProposalPackage } from "@/lib/proposal-types";
 
 type Tab = "analysis" | "email" | "proposal" | "chat";
@@ -68,6 +69,13 @@ export function ResultsTabs({ result }: Props) {
       setProposalLoading(false);
     }
   }, [analysisMarkdown, companyProfile, result.documents]);
+
+  const handleCompanyChange = (company: CompanyProfile) => {
+    setCompanyProfile(company);
+    if (proposalPackage) {
+      setProposalPackage(applyStandardProposalPackage(proposalPackage, company));
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -137,7 +145,7 @@ export function ResultsTabs({ result }: Props) {
           error={proposalError}
           onGenerate={handleGenerateProposal}
           onPackageChange={setProposalPackage}
-          onCompanyChange={setCompanyProfile}
+          onCompanyChange={handleCompanyChange}
         />
       ) : (
         <ChatPanel result={editableResult} />

@@ -1,3 +1,4 @@
+import { applyStandardProposalPackage } from "./proposal-template";
 import type { ProposalPackage } from "./proposal-types";
 
 export function extractJsonFromModelResponse(text: string): unknown {
@@ -36,7 +37,8 @@ function asBoolean(value: unknown, fallback = true): boolean {
 
 export function normalizeProposalPackage(
   raw: unknown,
-  model: string
+  model: string,
+  company?: Parameters<typeof applyStandardProposalPackage>[1]
 ): ProposalPackage {
   const data = (raw ?? {}) as Record<string, unknown>;
   const metadata = (data.metadata ?? {}) as Record<string, unknown>;
@@ -83,7 +85,7 @@ export function normalizeProposalPackage(
       })
     : [];
 
-  return {
+  const base: ProposalPackage = {
     checklist,
     metadata: {
       referencia: asString(metadata.referencia),
@@ -111,4 +113,10 @@ export function normalizeProposalPackage(
     generatedAt: new Date().toISOString(),
     model,
   };
+
+  if (company) {
+    return applyStandardProposalPackage(base, company);
+  }
+
+  return base;
 }
