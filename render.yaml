@@ -6,11 +6,15 @@ services:
     region: oregon
     buildCommand: npm install && npm run build
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
         value: 22.14.0
       - key: GEMINI_API_KEY
+        sync: false
+      - key: SITE_PASSWORD
+        sync: false
+      - key: AUTH_SECRET
         sync: false
       - key: GEMINI_ANALYSIS_MODEL
         value: gemini-2.5-flash

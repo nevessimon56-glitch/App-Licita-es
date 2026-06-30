@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { LogoutButton } from "./LogoutButton";
 import {
   FileText,
   Upload,
@@ -46,7 +47,7 @@ const LOADING_STEPS = [
   "Gerando resumo executivo...",
 ];
 
-export function AnalyzerApp() {
+export function AnalyzerApp({ showLogout = false }: { showLogout?: boolean }) {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
@@ -147,11 +148,14 @@ export function AnalyzerApp() {
       {/* Header */}
       <header className="bg-gradient-to-r from-blue-900 via-blue-800 to-blue-700 text-white">
         <div className="max-w-6xl mx-auto px-4 py-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Scale className="w-8 h-8" />
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-              App Licitações
-            </h1>
+          <div className="flex items-start justify-between gap-4 mb-2">
+            <div className="flex items-center gap-3">
+              <Scale className="w-8 h-8" />
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+                App Licitações
+              </h1>
+            </div>
+            {showLogout ? <LogoutButton /> : null}
           </div>
           <p className="text-blue-100 text-sm md:text-base max-w-3xl">
             Análise executiva de editais com resumo estruturado e chat
