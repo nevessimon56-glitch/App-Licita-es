@@ -65,6 +65,14 @@ export function formatConditionForExport(value: string): string {
   return value.trim().replace(/\s+/g, " ").toUpperCase();
 }
 
+export const PROPOSAL_SEM_INSTALACAO_SUFFIX = " - SEM INSTALAÇÃO.";
+
+/** docx: RRGGBB sem # */
+export const PROPOSAL_SEM_INSTALACAO_COLOR = "FF0000";
+
+/** pdfmake */
+export const PROPOSAL_SEM_INSTALACAO_COLOR_PDF = "#FF0000";
+
 export function formatDeclarationLines(text: string): string[] {
   return text
     .split(/\n+/)

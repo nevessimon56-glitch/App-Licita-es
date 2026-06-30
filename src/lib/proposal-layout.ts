@@ -3,6 +3,7 @@ import {
   formatCompanyCnpjLine,
   formatCompanyContactLine,
 } from "./company-defaults";
+import { PROPOSAL_SEM_INSTALACAO_SUFFIX } from "./proposal-export-styles";
 import { STANDARD_TABLE_HEADER } from "./proposal-template";
 import type { CompanyProfile, ProposalItem, ProposalPackage } from "./proposal-types";
 import { formatCurrencyExtenso } from "./currency-extenso";
@@ -26,8 +27,42 @@ export interface ProposalItemRow {
   especificacao: string;
   quantidade: string;
   marcaModelo: string;
+  marcaModeloBase: string;
+  semInstalacao: boolean;
   valorUnitario: string;
   valorTotal: string;
+}
+
+export function buildMarcaModeloParts(item: ProposalItem): {
+  base: string;
+  semInstalacao: boolean;
+  hasFabricanteMarca: boolean;
+} {
+  const hasFabricanteMarca = Boolean(
+    [item.fabricante, item.marcaModelo].map((part) => part.trim()).filter(Boolean).length
+  );
+  const base = hasFabricanteMarca
+    ? [item.fabricante, item.marcaModelo]
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join(" / ")
+        .toUpperCase()
+    : "A INFORMAR";
+
+  return {
+    base,
+    semInstalacao: item.semInstalacao,
+    hasFabricanteMarca,
+  };
+}
+
+export function buildMarcaModeloLine(item: ProposalItem): string {
+  const { base, semInstalacao, hasFabricanteMarca } = buildMarcaModeloParts(item);
+  if (semInstalacao) {
+    return `${base}${PROPOSAL_SEM_INSTALACAO_SUFFIX}`;
+  }
+  if (hasFabricanteMarca) return `${base}.`;
+  return base;
 }
 
 export function buildItemSpecificationColumn(item: ProposalItem): string {
@@ -42,21 +77,20 @@ export function buildItemSpecificationColumn(item: ProposalItem): string {
   return spec;
 }
 
-export function buildMarcaModeloLine(item: ProposalItem): string {
-  const base = [item.fabricante, item.marcaModelo].filter(Boolean).join(" / ");
-  if (!base) return "A INFORMAR";
-  return item.semInstalacao ? `${base} - SEM INSTALAÇÃO.` : `${base.toUpperCase()}.`;
-}
-
 export function buildProposalItemRows(pkg: ProposalPackage): ProposalItemRow[] {
-  return pkg.itens.map((item) => ({
-    numero: item.numero,
-    especificacao: buildItemSpecificationColumn(item),
-    quantidade: String(item.quantidade),
-    marcaModelo: buildMarcaModeloLine(item),
-    valorUnitario: formatCurrencyBRL(item.valorUnitario),
-    valorTotal: formatCurrencyBRL(item.valorTotal),
-  }));
+  return pkg.itens.map((item) => {
+    const marca = buildMarcaModeloParts(item);
+    return {
+      numero: item.numero,
+      especificacao: buildItemSpecificationColumn(item),
+      quantidade: String(item.quantidade),
+      marcaModelo: buildMarcaModeloLine(item),
+      marcaModeloBase: marca.base,
+      semInstalacao: marca.semInstalacao,
+      valorUnitario: formatCurrencyBRL(item.valorUnitario),
+      valorTotal: formatCurrencyBRL(item.valorTotal),
+    };
+  });
 }
 
 export function buildProposalCompanyHeader(company: CompanyProfile): string[] {

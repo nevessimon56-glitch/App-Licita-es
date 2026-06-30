@@ -2,6 +2,8 @@
 
 import type { ProposalItem } from "@/lib/proposal-types";
 import { formatCurrencyBRL } from "@/lib/proposal-document";
+import { buildMarcaModeloParts } from "@/lib/proposal-layout";
+import { PROPOSAL_SEM_INSTALACAO_SUFFIX } from "@/lib/proposal-export-styles";
 
 interface Props {
   itens: ProposalItem[];
@@ -205,6 +207,15 @@ export function ProposalItemsEditor({ itens, onChange }: Props) {
             />
             Incluir &quot;- SEM INSTALAÇÃO.&quot; na proposta
           </label>
+          {item.semInstalacao && (
+            <p className="text-sm text-slate-700">
+              Prévia na proposta:{" "}
+              <span>{buildMarcaModeloParts(item).base}</span>
+              <span className="font-semibold text-red-600">
+                {PROPOSAL_SEM_INSTALACAO_SUFFIX}
+              </span>
+            </p>
+          )}
         </div>
       ))}
 

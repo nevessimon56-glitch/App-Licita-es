@@ -13,6 +13,8 @@ import {
 } from "docx";
 import {
   PROPOSAL_EXPORT_COLORS,
+  PROPOSAL_SEM_INSTALACAO_COLOR,
+  PROPOSAL_SEM_INSTALACAO_SUFFIX,
   PROPOSAL_WORD_FONT,
   formatConditionForExport,
   formatDeclarationLines,
@@ -29,6 +31,7 @@ import {
   buildProposalItemRows,
   getProposalGrandTotalFormatted,
   getValorTotalExtenso,
+  type ProposalItemRow,
 } from "./proposal-layout";
 import type { CompanyProfile, ProposalPackage } from "./proposal-types";
 
@@ -36,12 +39,15 @@ const COLORS = PROPOSAL_EXPORT_COLORS;
 const FONT = PROPOSAL_WORD_FONT;
 const PAGE_MARGINS = { top: 850, right: 850, bottom: 850, left: 850 };
 
-function textRun(text: string, options?: { bold?: boolean; size?: number }): TextRun {
+function textRun(
+  text: string,
+  options?: { bold?: boolean; size?: number; color?: string }
+): TextRun {
   return new TextRun({
     text,
     bold: options?.bold,
     size: options?.size ?? FONT.body,
-    color: COLORS.text,
+    color: options?.color ?? COLORS.text,
     font: FONT.family,
   });
 }
@@ -114,6 +120,24 @@ function buildCompanyHeaderBlock(company: CompanyProfile): Paragraph[] {
         lineSpacing: 240,
       });
     });
+}
+
+function marcaModeloParagraph(row: ProposalItemRow): Paragraph {
+  if (!row.semInstalacao) {
+    return bodyParagraph(row.marcaModelo, { size: FONT.table, lineSpacing: 240 });
+  }
+
+  return new Paragraph({
+    spacing: { line: 240 },
+    children: [
+      textRun(row.marcaModeloBase, { size: FONT.table }),
+      textRun(PROPOSAL_SEM_INSTALACAO_SUFFIX, {
+        size: FONT.table,
+        color: PROPOSAL_SEM_INSTALACAO_COLOR,
+        bold: true,
+      }),
+    ],
+  });
 }
 
 function buildInfoTable(pkg: ProposalPackage): Table {
@@ -204,12 +228,7 @@ function buildItemsTable(pkg: ProposalPackage): Table {
               new TableCell({
                 borders: cellBorders(),
                 margins: compactMargins(),
-                children: [
-                  bodyParagraph(formatConditionForExport(row.marcaModelo), {
-                    size: FONT.table,
-                    lineSpacing: 240,
-                  }),
-                ],
+                children: [marcaModeloParagraph(row)],
               }),
               new TableCell({
                 borders: cellBorders(),

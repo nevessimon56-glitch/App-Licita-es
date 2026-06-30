@@ -2,6 +2,8 @@ import type { Content, TableCell, TDocumentDefinitions } from "pdfmake/interface
 import {
   PROPOSAL_PDF_COLORS,
   PROPOSAL_PDF_FONT,
+  PROPOSAL_SEM_INSTALACAO_COLOR_PDF,
+  PROPOSAL_SEM_INSTALACAO_SUFFIX,
   formatConditionForExport,
   formatDeclarationLines,
   formatSpecificationForExport,
@@ -19,6 +21,7 @@ import {
   getValorTotalExtenso,
 } from "./proposal-layout";
 import type { CompanyProfile, ProposalPackage } from "./proposal-types";
+import type { ProposalItemRow } from "./proposal-layout";
 
 const COLORS = PROPOSAL_PDF_COLORS;
 const FONT = PROPOSAL_PDF_FONT;
@@ -142,6 +145,29 @@ function buildMetadataSection(pkg: ProposalPackage, company: CompanyProfile): Co
   ];
 }
 
+function buildMarcaModeloPdfCell(row: ProposalItemRow): TableCell {
+  if (!row.semInstalacao) {
+    return {
+      text: sanitize(row.marcaModelo),
+      fontSize: FONT.table,
+      lineHeight: FONT.lineHeight,
+    } satisfies TableCell;
+  }
+
+  return {
+    text: [
+      { text: sanitize(row.marcaModeloBase), fontSize: FONT.table },
+      {
+        text: sanitize(PROPOSAL_SEM_INSTALACAO_SUFFIX),
+        fontSize: FONT.table,
+        color: PROPOSAL_SEM_INSTALACAO_COLOR_PDF,
+        bold: true,
+      },
+    ],
+    lineHeight: FONT.lineHeight,
+  } satisfies TableCell;
+}
+
 function buildItemsTable(pkg: ProposalPackage): Content {
   const rows = buildProposalItemRows(pkg);
   const total = getProposalGrandTotalFormatted(pkg);
@@ -178,11 +204,7 @@ function buildItemsTable(pkg: ProposalPackage): Content {
             alignment: "center" as const,
             lineHeight: FONT.lineHeight,
           } satisfies TableCell,
-          {
-            text: sanitize(formatConditionForExport(row.marcaModelo)),
-            fontSize: FONT.table,
-            lineHeight: FONT.lineHeight,
-          } satisfies TableCell,
+          buildMarcaModeloPdfCell(row),
           {
             text: sanitize(row.valorUnitario),
             fontSize: FONT.table,
