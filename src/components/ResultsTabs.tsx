@@ -7,7 +7,7 @@ import { ChatPanel } from "./ChatPanel";
 import { EmailPanel } from "./EmailPanel";
 import { ProposalPanel } from "./ProposalPanel";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
-import { DEFAULT_COMPANY_PROFILE } from "@/lib/company-defaults";
+import { DEFAULT_COMPANY_ID, getCompanyById } from "@/lib/company-defaults";
 import { applyStandardProposalPackage } from "@/lib/proposal-template";
 import type { CompanyProfile, ProposalPackage } from "@/lib/proposal-types";
 
@@ -21,8 +21,10 @@ export function ResultsTabs({ result }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("analysis");
   const [analysisMarkdown, setAnalysisMarkdown] = useState(result.analysis);
   const [proposalPackage, setProposalPackage] = useState<ProposalPackage | null>(null);
-  const [companyProfile, setCompanyProfile] =
-    useState<CompanyProfile>(DEFAULT_COMPANY_PROFILE);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(DEFAULT_COMPANY_ID);
+  const [companyProfile, setCompanyProfile] = useState(() =>
+    getCompanyById(DEFAULT_COMPANY_ID)
+  );
   const [proposalLoading, setProposalLoading] = useState(false);
   const [proposalError, setProposalError] = useState<string | null>(null);
 
@@ -69,6 +71,14 @@ export function ResultsTabs({ result }: Props) {
       setProposalLoading(false);
     }
   }, [analysisMarkdown, companyProfile, result.documents]);
+
+  const handleSelectCompany = (company: CompanyProfile) => {
+    setSelectedCompanyId(company.id);
+    setCompanyProfile(company);
+    if (proposalPackage) {
+      setProposalPackage(applyStandardProposalPackage(proposalPackage, company));
+    }
+  };
 
   const handleCompanyChange = (company: CompanyProfile) => {
     setCompanyProfile(company);
@@ -141,11 +151,13 @@ export function ResultsTabs({ result }: Props) {
           result={editableResult}
           proposalPackage={proposalPackage}
           companyProfile={companyProfile}
+          selectedCompanyId={selectedCompanyId}
           loading={proposalLoading}
           error={proposalError}
           onGenerate={handleGenerateProposal}
           onPackageChange={setProposalPackage}
           onCompanyChange={handleCompanyChange}
+          onSelectCompany={handleSelectCompany}
         />
       ) : (
         <ChatPanel result={editableResult} />

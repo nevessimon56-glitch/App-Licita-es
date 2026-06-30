@@ -21,6 +21,7 @@ import {
   recalculateProposalTotals,
 } from "@/lib/proposal-document";
 import type { CompanyProfile, ProposalPackage } from "@/lib/proposal-types";
+import { CompanySelector } from "./CompanySelector";
 import { ProposalItemsEditor } from "./ProposalItemsEditor";
 
 type SubTab = "checklist" | "itens" | "proposta" | "declaracoes";
@@ -29,11 +30,13 @@ interface Props {
   result: AnalysisResponse;
   proposalPackage: ProposalPackage | null;
   companyProfile: CompanyProfile;
+  selectedCompanyId: string;
   loading: boolean;
   error: string | null;
   onGenerate: () => void;
   onPackageChange: (pkg: ProposalPackage) => void;
   onCompanyChange: (company: CompanyProfile) => void;
+  onSelectCompany: (company: CompanyProfile) => void;
 }
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -61,11 +64,13 @@ export function ProposalPanel({
   result,
   proposalPackage,
   companyProfile,
+  selectedCompanyId,
   loading,
   error,
   onGenerate,
   onPackageChange,
   onCompanyChange,
+  onSelectCompany,
 }: Props) {
   const [subTab, setSubTab] = useState<SubTab>("checklist");
   const [showCompany, setShowCompany] = useState(false);
@@ -107,11 +112,15 @@ export function ProposalPanel({
           Propostas e Declarações
         </h2>
         <p className="text-slate-600 max-w-2xl mx-auto">
-          Com base no resumo de <strong>{result.documentSummary.length}</strong>{" "}
-          documento(s), o sistema elabora o check-list de habilitação, a lista de
-          itens no formato da proposta comercial, as declarações e a estrutura
-          para preenchimento de preços.
+          Selecione a empresa e gere a proposta no layout padrão com base em{" "}
+          <strong>{result.documentSummary.length}</strong> documento(s).
         </p>
+        <div className="max-w-3xl mx-auto text-left">
+          <CompanySelector
+            selectedId={selectedCompanyId}
+            onSelect={onSelectCompany}
+          />
+        </div>
         <button
           type="button"
           onClick={onGenerate}
@@ -174,6 +183,13 @@ export function ProposalPanel({
               Regenerar
             </button>
           </div>
+        </div>
+
+        <div className="mt-4">
+          <CompanySelector
+            selectedId={selectedCompanyId}
+            onSelect={onSelectCompany}
+          />
         </div>
 
         {showCompany && (

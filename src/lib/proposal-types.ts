@@ -1,4 +1,6 @@
 export interface CompanyProfile {
+  id: string;
+  nomeFantasia: string;
   razaoSocial: string;
   cnpj: string;
   inscricaoEstadual: string;

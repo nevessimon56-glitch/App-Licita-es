@@ -1,4 +1,4 @@
-import { DEFAULT_COMPANY_PROFILE } from "./company-defaults";
+import { DEFAULT_COMPANY_ID, getCompanyById } from "./company-defaults";
 import { generateWithGemini } from "./gemini";
 import { extractJsonFromModelResponse, normalizeProposalPackage } from "./proposal-parse";
 import { PROPOSAL_SYSTEM_PROMPT } from "./proposal-prompt";
