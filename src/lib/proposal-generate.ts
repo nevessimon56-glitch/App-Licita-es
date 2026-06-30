@@ -9,6 +9,11 @@ const MAX_DOC_CHARS = 120_000;
 function buildDocumentContext(
   documents: ProposalGenerateRequest["documents"]
 ): string {
+  const perDocBudget = Math.max(
+    8_000,
+    Math.floor(MAX_DOC_CHARS / Math.max(documents.length, 1))
+  );
+
   return documents
     .map((doc) => {
       const text =
