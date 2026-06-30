@@ -22,6 +22,7 @@ import {
 } from "@/lib/proposal-document";
 import type { CompanyProfile, ProposalPackage } from "@/lib/proposal-types";
 import { CompanySelector } from "./CompanySelector";
+import { ProposalExportButtons } from "./ProposalExportButtons";
 import { ProposalItemsEditor } from "./ProposalItemsEditor";
 
 type SubTab = "checklist" | "itens" | "proposta" | "declaracoes";
@@ -300,7 +301,12 @@ export function ProposalPanel({
 
       {subTab === "proposta" && (
         <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-between items-start gap-3">
+            <ProposalExportButtons
+              pkg={pkg}
+              company={companyProfile}
+              kind="proposta"
+            />
             <CopyButton text={proposalText} label="Copiar proposta" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -387,7 +393,12 @@ export function ProposalPanel({
             Unificada). O texto é gerado automaticamente com os dados da empresa
             e do edital.
           </p>
-          <div className="flex justify-end">
+          <div className="flex flex-wrap justify-between items-start gap-3">
+            <ProposalExportButtons
+              pkg={pkg}
+              company={companyProfile}
+              kind="declaracoes"
+            />
             <CopyButton text={declarationsText} label="Copiar declarações" />
           </div>
           {pkg.declaracoesHabilitacao.map((section, index) => (

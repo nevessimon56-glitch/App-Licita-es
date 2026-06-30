@@ -1,25 +1,19 @@
-import type { CompanyProfile, ProposalItem, ProposalPackage } from "./proposal-types";
 import {
-  formatCompanyAddressLine,
-  formatCompanyCnpjLine,
-  formatCompanyContactLine,
-} from "./company-defaults";
+  buildItemSpecificationColumn,
+  buildMarcaModeloLine,
+  buildProposalCompanyHeader,
+  formatCurrencyBRL,
+  getProposalGrandTotal,
+} from "./proposal-layout";
 import {
   STANDARD_CHECKLIST_CATEGORIES,
   STANDARD_DECLARACOES_PROPOSTA,
   STANDARD_DIGITAL_SIGNATURE_NOTICE,
   STANDARD_TABLE_HEADER,
 } from "./proposal-template";
+import type { CompanyProfile, ProposalItem, ProposalPackage } from "./proposal-types";
 
-export function formatCurrencyBRL(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) {
-    return "R$ 0,00";
-  }
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
+export { formatCurrencyBRL, getProposalGrandTotal } from "./proposal-layout";
 
 export function recalculateItemTotals(item: ProposalItem): ProposalItem {
   if (item.valorUnitario === null || !Number.isFinite(item.valorUnitario)) {
@@ -34,38 +28,6 @@ export function recalculateItemTotals(item: ProposalItem): ProposalItem {
 export function recalculateProposalTotals(pkg: ProposalPackage): ProposalPackage {
   const itens = pkg.itens.map(recalculateItemTotals);
   return { ...pkg, itens };
-}
-
-export function getProposalGrandTotal(pkg: ProposalPackage): number {
-  return pkg.itens.reduce((sum, item) => sum + (item.valorTotal ?? 0), 0);
-}
-
-function buildItemSpecificationColumn(item: ProposalItem): string {
-  const parts = [item.unidade, item.codigo, item.descricao]
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  let spec = parts.join(" - ").toUpperCase();
-  if (item.descricaoComplementar.trim()) {
-    spec += `\n${item.descricaoComplementar.trim().toUpperCase()}`;
-  }
-  return spec;
-}
-
-function buildMarcaModeloLine(item: ProposalItem): string {
-  const base = [item.fabricante, item.marcaModelo].filter(Boolean).join(" / ");
-  if (!base) return "A INFORMAR";
-  return item.semInstalacao ? `${base} - SEM INSTALAÇÃO.` : `${base.toUpperCase()}.`;
-}
-
-function buildCompanyHeaderLines(company: CompanyProfile): string[] {
-  return [
-    company.razaoSocial.toUpperCase(),
-    formatCompanyCnpjLine(company).toUpperCase(),
-    formatCompanyContactLine(company).toUpperCase(),
-    "",
-    formatCompanyAddressLine(company).toUpperCase(),
-  ];
 }
 
 function buildRepresentativeSignatureLines(company: CompanyProfile): string[] {
@@ -93,7 +55,7 @@ export function buildProposalDocumentText(
 ): string {
   const total = getProposalGrandTotal(pkg);
   const lines: string[] = [
-    ...buildCompanyHeaderLines(company),
+    ...buildProposalCompanyHeader(company),
     "",
     pkg.metadata.referencia.toUpperCase(),
     "",
@@ -160,7 +122,7 @@ export function buildDeclarationsDocumentText(
   company: CompanyProfile
 ): string {
   const lines: string[] = [
-    ...buildCompanyHeaderLines(company),
+    ...buildProposalCompanyHeader(company),
     "",
     "DECLARAÇÕES",
     `À ${pkg.metadata.orgao.toUpperCase()}`,
