@@ -6,6 +6,7 @@ import {
   getProposalGrandTotal,
   getValorTotalExtenso,
 } from "./proposal-layout";
+import { shouldShowLote } from "./proposal-export-styles";
 import {
   STANDARD_CHECKLIST_CATEGORIES,
   STANDARD_DECLARACOES_PROPOSTA,
@@ -102,7 +103,7 @@ export function buildProposalDocumentText(
     ""
   );
 
-  if (pkg.metadata.lote.trim()) {
+  if (shouldShowLote(pkg.metadata.lote)) {
     lines.push(pkg.metadata.lote.toUpperCase(), "");
   }
 

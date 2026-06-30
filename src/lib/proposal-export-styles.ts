@@ -23,11 +23,11 @@ export const PROPOSAL_PDF_FONT = {
   companyDetail: 8.5,
   title: 12,
   body: 9,
-  table: 8.5,
-  tableSmall: 8,
-  totalAmount: 14,
-  lineHeight: 1.3,
-  cellPadding: 7,
+  table: 8,
+  tableSmall: 7.5,
+  totalAmount: 13,
+  lineHeight: 1.05,
+  cellPadding: 3,
 } as const;
 
 export const PROPOSAL_PDF_COLORS = {
@@ -35,33 +35,34 @@ export const PROPOSAL_PDF_COLORS = {
   headerBg: "#d9d9d9",
 } as const;
 
-/** Quebra especificações longas em linhas legíveis (ponto-e-vírgula, quebra manual, etc.) */
-export function formatSpecificationLines(spec: string): string[] {
-  const trimmed = spec.trim();
-  if (!trimmed) return [""];
+const LOTE_HIDDEN = new Set([
+  "",
+  "NÃO APLICÁVEL",
+  "NAO APLICAVEL",
+  "N/A",
+  "NA",
+  "-",
+  "—",
+  "NÃO INFORMADO",
+  "NAO INFORMADO",
+]);
 
-  const chunks: string[] = [];
+export function shouldShowLote(lote: string): boolean {
+  const normalized = lote.trim().toUpperCase();
+  return !LOTE_HIDDEN.has(normalized);
+}
 
-  for (const block of trimmed.split("\n")) {
-    const parts = block
-      .split(/;\s*/)
-      .map((part) => part.trim())
-      .filter(Boolean);
+/** Texto corrido na célula — sem quebrar cada ponto-e-vírgula em linha nova */
+export function formatSpecificationForExport(spec: string): string {
+  return spec
+    .replace(/\s*\n\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
 
-    if (parts.length <= 1) {
-      chunks.push(block.trim());
-      continue;
-    }
-
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i];
-      chunks.push(
-        i < parts.length - 1 && !part.endsWith(";") ? `${part};` : part
-      );
-    }
-  }
-
-  return chunks.length ? chunks : [trimmed];
+export function formatConditionForExport(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toUpperCase();
 }
 
 export function formatDeclarationLines(text: string): string[] {
@@ -69,19 +70,4 @@ export function formatDeclarationLines(text: string): string[] {
     .split(/\n+/)
     .map((line) => line.trim())
     .filter(Boolean);
-}
-
-export function formatConditionLines(value: string): string[] {
-  const trimmed = value.trim();
-  if (!trimmed) return [""];
-
-  if (trimmed.length < 120 && !trimmed.includes(". ")) {
-    return [trimmed.toUpperCase()];
-  }
-
-  return trimmed
-    .split(/(?<=\.)\s+/)
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => part.toUpperCase());
 }

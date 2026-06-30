@@ -88,7 +88,12 @@ export function getValorTotalExtenso(
   total?: number
 ): string {
   const manual = pkg.valorTotalExtenso.trim();
-  if (manual) return manual.toUpperCase();
+  if (
+    manual &&
+    !manual.toUpperCase().includes("PREENCHER POR EXTENSO")
+  ) {
+    return manual.toUpperCase();
+  }
 
   const amount = total ?? getProposalGrandTotal(pkg);
   return formatCurrencyExtenso(amount);
