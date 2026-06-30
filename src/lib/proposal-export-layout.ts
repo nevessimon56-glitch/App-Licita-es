@@ -2,6 +2,7 @@ import type { Content } from "pdfmake/interfaces";
 import {
   PROPOSAL_PDF_COLORS,
   PROPOSAL_PDF_FONT,
+  PROPOSAL_SIGNATURE_SPACE_PDF,
   formatConditionForExport,
 } from "./proposal-export-styles";
 import { buildProposalCompanyHeader } from "./proposal-layout";
@@ -67,11 +68,16 @@ export function buildCompanyHeaderContent(company: CompanyProfile): Content[] {
   return content;
 }
 
-function labeledLine(label: string, value: string, margin: [number, number, number, number] = [0, 0, 0, 2]): Content {
+function labeledLine(
+  label: string,
+  value: string,
+  margin: [number, number, number, number] = [0, 0, 0, 2],
+  fontSize: number = FONT.table
+): Content {
   return {
     text: [
-      { text: `${label} `, bold: true, fontSize: FONT.table },
-      { text: sanitize(formatConditionForExport(value)), fontSize: FONT.table },
+      { text: `${label} `, bold: true, fontSize },
+      { text: sanitize(formatConditionForExport(value)), fontSize },
     ],
     lineHeight: FONT.lineHeight,
     margin,
@@ -91,7 +97,11 @@ function tableLayout() {
   };
 }
 
-function sectionGrayBar(title: string, margin: [number, number, number, number] = [0, 6, 0, 3]): Content {
+function sectionGrayBar(
+  title: string,
+  margin: [number, number, number, number] = [0, 6, 0, 3],
+  fontSize: number = FONT.table
+): Content {
   return {
     table: {
       widths: ["*"],
@@ -100,7 +110,7 @@ function sectionGrayBar(title: string, margin: [number, number, number, number] 
           {
             text: sanitize(title),
             bold: true,
-            fontSize: FONT.table,
+            fontSize,
             fillColor: COLORS.headerBg,
             margin: [3, 4, 3, 4],
           },
@@ -162,33 +172,40 @@ export function buildSignatureContent(company: CompanyProfile): Content[] {
   const nascimento = company.representanteNascimento
     ? `, DATA DE NASCIMENTO: ${company.representanteNascimento}`
     : "";
+  const signatureFont = FONT.tableSmall;
 
   return [
     {
       text: formatProposalSignatureDate(company.assinaturaCidade),
-      fontSize: FONT.table,
+      fontSize: signatureFont,
       alignment: "center",
-      margin: [0, 8, 0, 6],
+      margin: [0, 8, 0, 4],
     },
     sectionGrayBar(
-      "CASO A EMPRESA VENHA SAGRAR-SE VENCEDOR(A) DO CERTAME, SEGUEM OS DADOS DO(A) REPRESENTANTE LEGAL PARA ASSINAR O CONTRATO:"
+      "CASO A EMPRESA VENHA SAGRAR-SE VENCEDOR(A) DO CERTAME, SEGUEM OS DADOS DO(A) REPRESENTANTE LEGAL PARA ASSINAR O CONTRATO:",
+      [0, 4, 0, 2],
+      signatureFont
     ),
-    labeledLine("NOME:", company.representanteNome),
+    labeledLine("NOME:", company.representanteNome, [0, 0, 0, 1], signatureFont),
     {
       text: `RG SOB Nº ${company.representanteRg}`,
-      fontSize: FONT.table,
-      margin: [0, 0, 0, 2],
+      fontSize: signatureFont,
+      margin: [0, 0, 0, 1],
     },
     {
       text: `CPF SOB Nº ${company.representanteCpf}`,
-      fontSize: FONT.table,
-      margin: [0, 0, 0, 4],
+      fontSize: signatureFont,
+      margin: [0, 0, 0, 2],
     },
     {
       text: `CARGO: ${company.representanteCargo.toUpperCase()}${nascimento}, ENDEREÇO: ${company.representanteEndereco.toUpperCase()}`,
-      fontSize: FONT.table,
+      fontSize: signatureFont,
       lineHeight: FONT.lineHeight,
-      margin: [0, 0, 0, 8],
+      margin: [0, 0, 0, 4],
+    },
+    {
+      text: "",
+      margin: [0, PROPOSAL_SIGNATURE_SPACE_PDF, 0, 0],
     },
   ];
 }

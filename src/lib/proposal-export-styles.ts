@@ -17,6 +17,9 @@ export const PROPOSAL_WORD_FONT = {
   totalAmount: 28,
 } as const;
 
+/** Espaço reservado para assinatura manual/digital (twips no Word) */
+export const PROPOSAL_SIGNATURE_SPACE_WORD = 1400;
+
 /** pdfmake usa pontos */
 export const PROPOSAL_PDF_FONT = {
   companyName: 11,
@@ -29,6 +32,9 @@ export const PROPOSAL_PDF_FONT = {
   lineHeight: 1.05,
   cellPadding: 3,
 } as const;
+
+/** Espaço reservado para assinatura manual/digital (pt no PDF) */
+export const PROPOSAL_SIGNATURE_SPACE_PDF = 72;
 
 export const PROPOSAL_PDF_COLORS = {
   border: "#000000",

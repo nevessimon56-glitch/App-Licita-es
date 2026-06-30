@@ -15,6 +15,7 @@ import {
   PROPOSAL_EXPORT_COLORS,
   PROPOSAL_SEM_INSTALACAO_COLOR,
   PROPOSAL_SEM_INSTALACAO_SUFFIX,
+  PROPOSAL_SIGNATURE_SPACE_WORD,
   PROPOSAL_WORD_FONT,
   formatConditionForExport,
   formatDeclarationLines,
@@ -87,22 +88,26 @@ function bodyParagraph(
   });
 }
 
-function labeledParagraph(label: string, value: string): Paragraph {
+function labeledParagraph(label: string, value: string, size: number = FONT.table): Paragraph {
   return new Paragraph({
-    spacing: { after: 60, line: 240 },
+    spacing: { after: 40, line: 220 },
     children: [
-      textRun(`${label} `, { bold: true, size: FONT.table }),
-      textRun(formatConditionForExport(value), { size: FONT.table }),
+      textRun(`${label} `, { bold: true, size }),
+      textRun(formatConditionForExport(value), { size }),
     ],
   });
 }
 
-function grayBarParagraph(title: string, spacingBefore = 100): Paragraph {
+function grayBarParagraph(
+  title: string,
+  spacingBefore = 100,
+  size: number = FONT.table
+): Paragraph {
   return new Paragraph({
-    spacing: { before: spacingBefore, after: 60, line: 240 },
+    spacing: { before: spacingBefore, after: 40, line: 220 },
     shading: { type: ShadingType.CLEAR, fill: COLORS.headerBg },
     border: cellBorders(),
-    children: [textRun(title, { bold: true, size: FONT.table })],
+    children: [textRun(title, { bold: true, size })],
   });
 }
 
@@ -359,25 +364,37 @@ function buildSignatureBlock(company: CompanyProfile): Paragraph[] {
   const nascimento = company.representanteNascimento
     ? `, DATA DE NASCIMENTO: ${company.representanteNascimento}`
     : "";
+  const signatureFont = FONT.tableSmall;
 
   return [
     bodyParagraph(formatProposalSignatureDate(company.assinaturaCidade), {
       alignment: AlignmentType.CENTER,
-      size: FONT.table,
+      size: signatureFont,
       spacingBefore: 100,
-      spacingAfter: 80,
+      spacingAfter: 60,
+      lineSpacing: 220,
     }),
     grayBarParagraph(
       "CASO A EMPRESA VENHA SAGRAR-SE VENCEDOR(A) DO CERTAME, SEGUEM OS DADOS DO(A) REPRESENTANTE LEGAL PARA ASSINAR O CONTRATO:",
-      0
+      0,
+      signatureFont
     ),
-    labeledParagraph("NOME:", company.representanteNome),
-    bodyParagraph(`RG SOB Nº ${company.representanteRg}`, { size: FONT.table, spacingAfter: 30 }),
-    bodyParagraph(`CPF SOB Nº ${company.representanteCpf}`, { size: FONT.table, spacingAfter: 30 }),
+    labeledParagraph("NOME:", company.representanteNome, signatureFont),
+    bodyParagraph(`RG SOB Nº ${company.representanteRg}`, {
+      size: signatureFont,
+      spacingAfter: 20,
+      lineSpacing: 220,
+    }),
+    bodyParagraph(`CPF SOB Nº ${company.representanteCpf}`, {
+      size: signatureFont,
+      spacingAfter: 20,
+      lineSpacing: 220,
+    }),
     bodyParagraph(
       `CARGO: ${company.representanteCargo.toUpperCase()}${nascimento}, ENDEREÇO: ${company.representanteEndereco.toUpperCase()}`,
-      { size: FONT.table, lineSpacing: 240, spacingAfter: 80 }
+      { size: signatureFont, lineSpacing: 220, spacingAfter: 40 }
     ),
+    bodyParagraph("", { spacingAfter: PROPOSAL_SIGNATURE_SPACE_WORD }),
   ];
 }
 
