@@ -1,7 +1,6 @@
 import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import {
-  AUTH_COOKIE_MAX_AGE_SECONDS,
   AUTH_COOKIE_NAME,
   createSessionToken,
   isAuthEnabled,
@@ -51,7 +50,6 @@ export async function POST(request: Request) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: AUTH_COOKIE_MAX_AGE_SECONDS,
   });
 
   return response;

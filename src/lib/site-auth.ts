@@ -1,6 +1,8 @@
 export const AUTH_COOKIE_NAME = "app_licitacoes_session";
+export const AUTH_SESSION_FLAG = "app_licitacoes_auth";
 
-const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+/** Validade do token enquanto a aba está aberta (não persiste após F5/sair). */
+const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
 export function isAuthEnabled(): boolean {
   return Boolean(process.env.SITE_PASSWORD?.trim());
@@ -95,4 +97,23 @@ export async function verifySessionToken(token: string | undefined): Promise<boo
   }
 }
 
-export const AUTH_COOKIE_MAX_AGE_SECONDS = Math.floor(SESSION_MAX_AGE_MS / 1000);
+export function markAuthSessionActive(): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(AUTH_SESSION_FLAG, "1");
+}
+
+export function clearAuthSessionFlag(): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(AUTH_SESSION_FLAG);
+}
+
+export function hasAuthSessionFlag(): boolean {
+  if (typeof window === "undefined") return false;
+  return sessionStorage.getItem(AUTH_SESSION_FLAG) === "1";
+}
+
+export function clearAuthSessionOnLeave(): void {
+  if (typeof window === "undefined") return;
+  clearAuthSessionFlag();
+  fetch("/api/auth/logout", { method: "POST", keepalive: true }).catch(() => {});
+}

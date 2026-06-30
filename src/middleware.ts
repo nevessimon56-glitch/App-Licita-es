@@ -16,12 +16,6 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_PATHS.has(pathname)) {
-    if (pathname === "/login") {
-      const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
-      if (await verifySessionToken(token)) {
-        return NextResponse.redirect(new URL("/", request.url));
-      }
-    }
     return NextResponse.next();
   }
 

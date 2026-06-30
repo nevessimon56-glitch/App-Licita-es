@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Lock, Scale } from "lucide-react";
+import { markAuthSessionActive } from "@/lib/site-auth";
 
 export function LoginForm() {
   const router = useRouter();
@@ -31,8 +32,9 @@ export function LoginForm() {
         throw new Error(data.error ?? "Não foi possível entrar.");
       }
 
+      markAuthSessionActive();
+
       router.replace(from.startsWith("/") ? from : "/");
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao entrar.");
     } finally {
