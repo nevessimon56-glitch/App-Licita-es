@@ -15,6 +15,7 @@ import {
   buildProposalCompanyHeader,
   buildProposalItemRows,
   getProposalGrandTotalFormatted,
+  getValorTotalExtenso,
 } from "./proposal-layout";
 import type { CompanyProfile, ProposalPackage } from "./proposal-types";
 
@@ -185,9 +186,7 @@ function buildItemsTable(pkg: ProposalPackage): Content {
                   margin: [0, 0, 0, 4],
                 },
                 {
-                  text: sanitize(
-                    (pkg.valorTotalExtenso || "[PREENCHER POR EXTENSO]").toUpperCase()
-                  ),
+                  text: sanitize(getValorTotalExtenso(pkg)),
                   fontSize: FONT.table,
                   lineHeight: FONT.lineHeight,
                 },

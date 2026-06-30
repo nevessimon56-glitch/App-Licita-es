@@ -20,6 +20,7 @@ import {
   getProposalGrandTotal,
   recalculateProposalTotals,
 } from "@/lib/proposal-document";
+import { getValorTotalExtenso } from "@/lib/proposal-layout";
 import type { CompanyProfile, ProposalPackage } from "@/lib/proposal-types";
 import { CompanySelector } from "./CompanySelector";
 import { ProposalExportButtons } from "./ProposalExportButtons";
@@ -370,11 +371,16 @@ export function ProposalPanel({
             ))}
           </div>
           <label className="proposal-field">
-            <span>Valor total por extenso</span>
+            <span>
+              Valor total por extenso{" "}
+              <span className="text-slate-500 font-normal">
+                (calculado automaticamente — edite se quiser outro texto)
+              </span>
+            </span>
             <input
-              value={pkg.valorTotalExtenso}
+              value={pkg.valorTotalExtenso || getValorTotalExtenso(pkg)}
               onChange={(e) => updatePackage({ valorTotalExtenso: e.target.value })}
-              placeholder="Ex.: QUATRO MILHÕES, CENTO E ONZE MIL..."
+              placeholder="Ex.: QUARENTA E SEIS MIL, TREZENTOS E CINQUENTA REAIS"
             />
           </label>
           <textarea

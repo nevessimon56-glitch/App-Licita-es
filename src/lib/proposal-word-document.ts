@@ -27,6 +27,7 @@ import {
   buildProposalCompanyHeader,
   buildProposalItemRows,
   getProposalGrandTotalFormatted,
+  getValorTotalExtenso,
 } from "./proposal-layout";
 import type { CompanyProfile, ProposalPackage } from "./proposal-types";
 
@@ -283,12 +284,10 @@ function buildItemsTable(pkg: ProposalPackage): Table {
           grayCell(
             [
               bodyParagraph("VALOR TOTAL:", { bold: true, size: FONT.table }),
-              ...linesParagraph(
-                [
-                  (pkg.valorTotalExtenso || "[PREENCHER POR EXTENSO]").toUpperCase(),
-                ],
-                { size: FONT.table, lineSpacing: 300 }
-              ),
+              ...linesParagraph([getValorTotalExtenso(pkg)], {
+                size: FONT.table,
+                lineSpacing: 300,
+              }),
             ],
             { columnSpan: 5 }
           ),

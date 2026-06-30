@@ -4,6 +4,7 @@ import {
   buildProposalCompanyHeader,
   formatCurrencyBRL,
   getProposalGrandTotal,
+  getValorTotalExtenso,
 } from "./proposal-layout";
 import {
   STANDARD_CHECKLIST_CATEGORIES,
@@ -90,7 +91,7 @@ export function buildProposalDocumentText(
 
   lines.push(
     "",
-    `VALOR TOTAL: ${formatCurrencyBRL(total)}    ${(pkg.valorTotalExtenso || "[PREENCHER POR EXTENSO]").toUpperCase()}.`,
+    `VALOR TOTAL: ${formatCurrencyBRL(total)}    ${getValorTotalExtenso(pkg, total)}.`,
     "",
     "CONDIÇÕES COMERCIAIS DA PROPOSTA:",
     `VALIDADE: ${pkg.condicoesComerciais.validade.toUpperCase()}`,

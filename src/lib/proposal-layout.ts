@@ -5,6 +5,7 @@ import {
 } from "./company-defaults";
 import { STANDARD_TABLE_HEADER } from "./proposal-template";
 import type { CompanyProfile, ProposalItem, ProposalPackage } from "./proposal-types";
+import { formatCurrencyExtenso } from "./currency-extenso";
 
 export function formatCurrencyBRL(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) {
@@ -79,4 +80,16 @@ export const PROPOSAL_TABLE_HEADERS = [
 
 export function getProposalGrandTotalFormatted(pkg: ProposalPackage): string {
   return formatCurrencyBRL(getProposalGrandTotal(pkg));
+}
+
+/** Usa o texto editado pelo usuário ou calcula automaticamente a partir do total. */
+export function getValorTotalExtenso(
+  pkg: ProposalPackage,
+  total?: number
+): string {
+  const manual = pkg.valorTotalExtenso.trim();
+  if (manual) return manual.toUpperCase();
+
+  const amount = total ?? getProposalGrandTotal(pkg);
+  return formatCurrencyExtenso(amount);
 }
