@@ -33,8 +33,8 @@ export async function generateProposalPackage(
   }
 
   const companyProfile: CompanyProfile = {
-    ...DEFAULT_COMPANY_PROFILE,
-    ...request.companyProfile,
+    ...getCompanyById(request.companyProfile?.id ?? DEFAULT_COMPANY_ID),
+    ...(request.companyProfile ?? {}),
   };
 
   const context = buildDocumentContext(request.documents);
