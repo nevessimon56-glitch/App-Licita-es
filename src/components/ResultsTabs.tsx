@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { BarChart3, Mail, MessageCircle } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { BarChart3, FileStack, Mail, MessageCircle } from "lucide-react";
 import { AnalysisResult } from "./AnalysisResult";
 import { ChatPanel } from "./ChatPanel";
 import { EmailPanel } from "./EmailPanel";
+import { ProposalPanel } from "./ProposalPanel";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
+import { DEFAULT_COMPANY_PROFILE } from "@/lib/company-defaults";
+import type { CompanyProfile, ProposalPackage } from "@/lib/proposal-types";
 
-type Tab = "analysis" | "email" | "chat";
+type Tab = "analysis" | "email" | "proposal" | "chat";
 
 interface Props {
   result: AnalysisResponse;
@@ -16,9 +19,16 @@ interface Props {
 export function ResultsTabs({ result }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("analysis");
   const [analysisMarkdown, setAnalysisMarkdown] = useState(result.analysis);
+  const [proposalPackage, setProposalPackage] = useState<ProposalPackage | null>(null);
+  const [companyProfile, setCompanyProfile] =
+    useState<CompanyProfile>(DEFAULT_COMPANY_PROFILE);
+  const [proposalLoading, setProposalLoading] = useState(false);
+  const [proposalError, setProposalError] = useState<string | null>(null);
 
   useEffect(() => {
     setAnalysisMarkdown(result.analysis);
+    setProposalPackage(null);
+    setProposalError(null);
   }, [result]);
 
   const editableResult: AnalysisResponse = {
@@ -26,9 +36,42 @@ export function ResultsTabs({ result }: Props) {
     analysis: analysisMarkdown,
   };
 
+  const handleGenerateProposal = useCallback(async () => {
+    setProposalLoading(true);
+    setProposalError(null);
+
+    try {
+      const response = await fetch("/api/proposal/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          analysis: analysisMarkdown,
+          documents: result.documents,
+          companyProfile,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Erro ao gerar proposta.");
+      }
+
+      setProposalPackage(payload.package);
+      if (payload.companyProfile) {
+        setCompanyProfile(payload.companyProfile);
+      }
+    } catch (err) {
+      setProposalError(
+        err instanceof Error ? err.message : "Erro ao gerar proposta."
+      );
+    } finally {
+      setProposalLoading(false);
+    }
+  }, [analysisMarkdown, companyProfile, result.documents]);
+
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+      <div className="flex flex-wrap gap-1 p-1 bg-slate-100 rounded-xl w-fit">
         <button
           onClick={() => setActiveTab("analysis")}
           className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
@@ -52,6 +95,20 @@ export function ResultsTabs({ result }: Props) {
           E-mail
         </button>
         <button
+          onClick={() => setActiveTab("proposal")}
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === "proposal"
+              ? "bg-white text-blue-800 shadow-sm"
+              : "text-slate-600 hover:text-slate-800"
+          }`}
+        >
+          <FileStack className="w-4 h-4" />
+          Propostas
+          {proposalPackage && (
+            <span className="w-2 h-2 rounded-full bg-green-500" aria-hidden />
+          )}
+        </button>
+        <button
           onClick={() => setActiveTab("chat")}
           className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             activeTab === "chat"
@@ -71,6 +128,17 @@ export function ResultsTabs({ result }: Props) {
         />
       ) : activeTab === "email" ? (
         <EmailPanel result={editableResult} />
+      ) : activeTab === "proposal" ? (
+        <ProposalPanel
+          result={editableResult}
+          proposalPackage={proposalPackage}
+          companyProfile={companyProfile}
+          loading={proposalLoading}
+          error={proposalError}
+          onGenerate={handleGenerateProposal}
+          onPackageChange={setProposalPackage}
+          onCompanyChange={setCompanyProfile}
+        />
       ) : (
         <ChatPanel result={editableResult} />
       )}
