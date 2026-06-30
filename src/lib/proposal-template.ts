@@ -2,7 +2,7 @@ import type { CompanyProfile, ProposalMetadata, ProposalPackage } from "./propos
 
 /** Layout único — sem variação por município ou edital */
 export const STANDARD_TABLE_HEADER =
-  "UNIDADE DE MEDIDA - CÓDIGO - ESPECIFICAÇÃO TECNICA DO PRODUTO";
+  "UNIDADE DE MEDIDA - ESPECIFICAÇÃO TECNICA DO PRODUTO";
 
 export const STANDARD_CHECKLIST_CATEGORIES = [
   "Documentos de Habilitação",

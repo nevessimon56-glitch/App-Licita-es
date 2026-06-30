@@ -1,5 +1,10 @@
 import type { CompanyProfile, ProposalItem, ProposalPackage } from "./proposal-types";
 import {
+  formatCompanyAddressLine,
+  formatCompanyCnpjLine,
+  formatCompanyContactLine,
+} from "./company-defaults";
+import {
   STANDARD_CHECKLIST_CATEGORIES,
   STANDARD_DECLARACOES_PROPOSTA,
   STANDARD_DIGITAL_SIGNATURE_NOTICE,
@@ -53,33 +58,57 @@ function buildMarcaModeloLine(item: ProposalItem): string {
   return item.semInstalacao ? `${base} - SEM INSTALAÇÃO.` : `${base.toUpperCase()}.`;
 }
 
+function buildCompanyHeaderLines(company: CompanyProfile): string[] {
+  return [
+    company.razaoSocial.toUpperCase(),
+    formatCompanyCnpjLine(company).toUpperCase(),
+    formatCompanyContactLine(company).toUpperCase(),
+    "",
+    formatCompanyAddressLine(company).toUpperCase(),
+  ];
+}
+
+function buildRepresentativeSignatureLines(company: CompanyProfile): string[] {
+  const nascimento = company.representanteNascimento
+    ? `, DATA DE NASCIMENTO: ${company.representanteNascimento}`
+    : "";
+
+  return [
+    `DATA: ${company.assinaturaCidade.toUpperCase()} - [DIA] DE [MÊS] DE [ANO].`,
+    `NOME: ${company.representanteNome.toUpperCase()}`,
+    `RG SOB Nº ${company.representanteRg}`,
+    `CPF SOB Nº ${company.representanteCpf}`,
+    "",
+    "CASO A EMPRESA VENHA SAGRAR-SE VENCEDOR(A) DO CERTAME, SEGUEM OS DADOS DO(A) REPRESENTANTE LEGAL PARA ASSINAR O CONTRATO:",
+    company.representanteNome.toUpperCase(),
+    company.representanteRg,
+    company.representanteCpf,
+    `CARGO: ${company.representanteCargo.toUpperCase()}${nascimento}, ENDEREÇO: ${company.representanteEndereco.toUpperCase()}`,
+  ];
+}
+
 export function buildProposalDocumentText(
   pkg: ProposalPackage,
   company: CompanyProfile
 ): string {
   const total = getProposalGrandTotal(pkg);
   const lines: string[] = [
-    company.razaoSocial.toUpperCase(),
-    `CNPJ: ${company.cnpj}`,
-    `INSCRIÇÃO ESTADUAL: ${company.inscricaoEstadual}`,
-    `TELEFONE: ${company.telefone} - FAX: ${company.fax} - E-MAIL: ${company.email}`,
-    company.endereco.toUpperCase(),
-    `${company.municipio.toUpperCase()}, ESTADO: ${company.estado.toUpperCase()} - CEP: ${company.cep}`,
+    ...buildCompanyHeaderLines(company),
     "",
     pkg.metadata.referencia.toUpperCase(),
     "",
     "PROPOSTA COMERCIAL DE PREÇOS",
     "",
-    `À ${pkg.metadata.orgao.toUpperCase()}`,
-    pkg.metadata.objeto.toUpperCase(),
-    "",
     `ORGÃO: ${pkg.metadata.orgao.toUpperCase()}`,
     `OBJETO: ${pkg.metadata.objeto.toUpperCase()}`,
     `PROCESSO: ${pkg.metadata.processo.toUpperCase()}`,
+    "",
+    "INFORMAÇÕES:",
     `ENDEREÇO DO ÓRGÃO: ${pkg.metadata.enderecoOrgao.toUpperCase()}`,
-    `DADOS BANCARIOS: ${company.banco.toUpperCase()} - AGENCIA: ${company.agencia} - CONTA CORRENTE: ${company.conta}`,
-    `INFORMAÇÕES: HORARIO: ${pkg.metadata.horarioSessao.toUpperCase()}`,
     `CRITERIO DE JULGAMENTO: ${pkg.metadata.criterioJulgamento.toUpperCase()}`,
+    `HORARIO: ${pkg.metadata.horarioSessao.toUpperCase()}`,
+    "",
+    `DADOS BANCARIOS: ${company.banco.toUpperCase()} - AGENCIA: ${company.agencia} - CONTA CORRENTE: ${company.conta}`,
     "",
     `ITEM | ${STANDARD_TABLE_HEADER} | QNT | FABRICANTE MARCA / MODELO | VALOR UNITARIO | VALOR TOTAL`,
   ];
@@ -99,7 +128,7 @@ export function buildProposalDocumentText(
 
   lines.push(
     "",
-    `${formatCurrencyBRL(total)}    VALOR TOTAL: ${(pkg.valorTotalExtenso || "[PREENCHER POR EXTENSO]").toUpperCase()}.`,
+    `VALOR TOTAL: ${formatCurrencyBRL(total)}    ${(pkg.valorTotalExtenso || "[PREENCHER POR EXTENSO]").toUpperCase()}.`,
     "",
     "CONDIÇÕES COMERCIAIS DA PROPOSTA:",
     `VALIDADE: ${pkg.condicoesComerciais.validade.toUpperCase()}`,
@@ -120,17 +149,7 @@ export function buildProposalDocumentText(
     "",
     STANDARD_DIGITAL_SIGNATURE_NOTICE,
     "",
-    `${company.assinaturaCidade.toUpperCase()} - [DATA]`,
-    "DATA:",
-    `NOME: ${company.representanteNome.toUpperCase()}`,
-    `RG SOB Nº ${company.representanteRg}`,
-    `CPF SOB Nº ${company.representanteCpf}`,
-    "",
-    "CASO A EMPRESA VENHA SAGRAR-SE VENCEDOR(A) DO CERTAME, SEGUEM OS DADOS DO(A) REPRESENTANTE LEGAL PARA ASSINAR O CONTRATO:",
-    company.representanteNome.toUpperCase(),
-    company.representanteRg,
-    company.representanteCpf,
-    `CARGO: ${company.representanteCargo.toUpperCase()}, DATA DE NASCIMENTO: ${company.representanteNascimento}, ENDEREÇO: ${company.representanteEndereco.toUpperCase()}`
+    ...buildRepresentativeSignatureLines(company)
   );
 
   return lines.join("\n");
@@ -141,16 +160,12 @@ export function buildDeclarationsDocumentText(
   company: CompanyProfile
 ): string {
   const lines: string[] = [
-    company.razaoSocial.toUpperCase(),
-    `CNPJ: ${company.cnpj}`,
-    `INSCRIÇÃO ESTADUAL: ${company.inscricaoEstadual}`,
-    `TELEFONE: ${company.telefone} - FAX: ${company.fax} - E-MAIL: ${company.email}`,
-    company.endereco.toUpperCase(),
-    `${company.municipio.toUpperCase()}, ESTADO: ${company.estado.toUpperCase()} - CEP: ${company.cep}`,
+    ...buildCompanyHeaderLines(company),
     "",
     "DECLARAÇÕES",
     `À ${pkg.metadata.orgao.toUpperCase()}`,
-    pkg.metadata.objeto.toUpperCase(),
+    `OBJETO: ${pkg.metadata.objeto.toUpperCase()}`,
+    `PROCESSO: ${pkg.metadata.processo.toUpperCase()}`,
     pkg.metadata.referencia.toUpperCase(),
     "",
     STANDARD_DIGITAL_SIGNATURE_NOTICE,
@@ -161,19 +176,7 @@ export function buildDeclarationsDocumentText(
     lines.push(section.titulo.toUpperCase(), "", section.conteudo, "");
   }
 
-  lines.push(
-    `${company.assinaturaCidade.toUpperCase()} - [DATA]`,
-    "DATA:",
-    `NOME: ${company.representanteNome.toUpperCase()}`,
-    `RG SOB Nº ${company.representanteRg}`,
-    `CPF SOB Nº ${company.representanteCpf}`,
-    "",
-    "CASO A EMPRESA VENHA SAGRAR-SE VENCEDOR(A) DO CERTAME, SEGUEM OS DADOS DO(A) REPRESENTANTE LEGAL PARA ASSINAR O CONTRATO:",
-    company.representanteNome.toUpperCase(),
-    company.representanteRg,
-    company.representanteCpf,
-    `CARGO: ${company.representanteCargo.toUpperCase()}, DATA DE NASCIMENTO: ${company.representanteNascimento}, ENDEREÇO: ${company.representanteEndereco.toUpperCase()}`
-  );
+  lines.push(...buildRepresentativeSignatureLines(company));
 
   return lines.join("\n");
 }
