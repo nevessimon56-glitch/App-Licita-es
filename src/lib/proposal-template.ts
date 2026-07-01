@@ -1,4 +1,4 @@
-import { buildPregaoLine, buildReferenciaCompleta } from "./proposal-metadata";
+import { buildPregaoLine, buildPregaoReferencia, buildReferenciaCompleta } from "./proposal-metadata";
 import type { CompanyProfile, ProposalMetadata, ProposalPackage } from "./proposal-types";
 
 /** Layout único — sem variação por município ou edital */
@@ -169,7 +169,7 @@ export function applyStandardProposalPackage(
   checklist.push(
     {
       categoria: "Tipo de Pregão",
-      item: buildPregaoLine(metadata),
+      item: buildPregaoReferencia(metadata),
       requisitos: "Conforme edital analisado",
     },
     {
