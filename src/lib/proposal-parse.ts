@@ -1,22 +1,7 @@
 import { applyStandardProposalPackage } from "./proposal-template";
 import type { ProposalPackage } from "./proposal-types";
 
-export function extractJsonFromModelResponse(text: string): unknown {
-  const trimmed = text.trim();
-
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced?.[1]) {
-    return JSON.parse(fenced[1].trim());
-  }
-
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
-  if (start >= 0 && end > start) {
-    return JSON.parse(trimmed.slice(start, end + 1));
-  }
-
-  return JSON.parse(trimmed);
-}
+export { extractJsonFromModelResponse, parseModelJson } from "./json-parse-model";
 
 function asString(value: unknown, fallback = ""): string {
   if (value === null || value === undefined) return fallback;

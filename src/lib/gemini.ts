@@ -86,6 +86,7 @@ interface GenerateOptions {
   maxOutputTokens?: number;
   models?: readonly string[];
   history?: { role: "user" | "model"; parts: [{ text: string }] }[];
+  responseMimeType?: string;
 }
 
 export async function generateWithGemini(options: GenerateOptions): Promise<{
@@ -112,6 +113,9 @@ export async function generateWithGemini(options: GenerateOptions): Promise<{
           temperature: options.temperature ?? 0.2,
           ...(options.maxOutputTokens
             ? { maxOutputTokens: options.maxOutputTokens }
+            : {}),
+          ...(options.responseMimeType
+            ? { responseMimeType: options.responseMimeType }
             : {}),
         },
       });

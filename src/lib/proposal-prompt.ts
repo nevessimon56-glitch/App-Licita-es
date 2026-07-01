@@ -28,6 +28,7 @@ REGRAS OBRIGATÓRIAS:
 - numeroPregao: número do pregão/licitação (ex.: "052/2026") — sem a palavra "Nº"
 - processo: número do processo administrativo (somente o número, ex.: "1234/2026")
 - valorTotalExtenso: deixe vazio.
+- No JSON, escape aspas duplas dentro dos textos com \\" e evite quebras de linha literais nos campos (use espaço ou \\n).
 
 RESPONDA APENAS com JSON válido (sem markdown), neste schema:
 
