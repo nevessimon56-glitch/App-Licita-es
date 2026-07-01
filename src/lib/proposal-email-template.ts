@@ -15,12 +15,28 @@ const DEFAULT_VIGENCIA =
 const DEFAULT_HABILITACAO =
   "balanço patrimonial, demonstração de resultado de exercício e demais demonstrações contábeis dos dois últimos exercícios sociais";
 
+function isBrokenOrgaoResumo(value: string): boolean {
+  const text = value.toUpperCase();
+  return (
+    /"\s*J[ÚU]LIO DE\s*-\s*DE/.test(text) ||
+    /\s-\sDE\s+PE\b/.test(text) ||
+    /"\s*$/.test(value.trim()) ||
+    /\s-\sDE\s*$/.test(text)
+  );
+}
+
 export function buildDefaultProposalEmailConfig(
   pkg: ProposalPackage
 ): ProposalEmailConfig {
   const existing = pkg.email;
+  const inferredOrgao = inferOrgaoResumo(pkg);
+  const storedOrgao = existing?.orgaoResumo?.trim();
+
   return {
-    orgaoResumo: existing?.orgaoResumo?.trim() || inferOrgaoResumo(pkg),
+    orgaoResumo:
+      !storedOrgao || isBrokenOrgaoResumo(storedOrgao)
+        ? inferredOrgao
+        : storedOrgao,
     uasg: existing?.uasg ?? "",
     linkEdital: existing?.linkEdital ?? "",
     localEntrega: existing?.localEntrega?.trim() || inferLocalEntrega(pkg),
@@ -33,27 +49,70 @@ export function buildDefaultProposalEmailConfig(
   };
 }
 
+const BRAZILIAN_UFS = new Set([
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
+  "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+]);
+
+function extractBrazilianUf(...sources: string[]): string {
+  for (const source of sources) {
+    const text = source.toUpperCase();
+    const endMatch = text.match(/(?:^|[\s,-])([A-Z]{2})\s*$/);
+    if (endMatch && BRAZILIAN_UFS.has(endMatch[1])) return endMatch[1];
+
+    const matches = text.match(/\b([A-Z]{2})\b/g) ?? [];
+    for (let i = matches.length - 1; i >= 0; i--) {
+      if (BRAZILIAN_UFS.has(matches[i]!)) return matches[i]!;
+    }
+  }
+  return "";
+}
+
+function cleanOrgaoText(value: string): string {
+  return value
+    .replace(/["""']/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
 function inferOrgaoResumo(pkg: ProposalPackage): string {
-  const orgao = pkg.metadata.orgao.toUpperCase();
-  const endereco = pkg.metadata.enderecoOrgao.toUpperCase();
-  const ufMatch =
-    endereco.match(/\b([A-Z]{2})\b(?![A-Z])/g) ||
-    orgao.match(/\b([A-Z]{2})\b(?![A-Z])/g);
-  const uf = ufMatch?.[ufMatch.length - 1] ?? "";
+  const orgaoRaw = pkg.metadata.orgao.trim();
+  const orgao = cleanOrgaoText(orgaoRaw);
+  const uf = extractBrazilianUf(pkg.metadata.enderecoOrgao, orgaoRaw);
+
+  const acronymInParentheses = orgaoRaw.match(/\(([A-Z]{2,12})\)/i)?.[1]?.toUpperCase();
+  if (acronymInParentheses) {
+    return uf ? `${acronymInParentheses} - ${uf}` : acronymInParentheses;
+  }
+
+  if (/\bUNESP\b|JULIO DE MESQUITA|JÚLIO DE MESQUITA|UNIVERSIDADE ESTADUAL PAULISTA/.test(orgao)) {
+    return uf ? `UNESP - ${uf}` : "UNESP";
+  }
 
   if (/EXERCITO|EXÉRCITO/.test(orgao)) {
     return uf ? `EXERCITO - ${uf}` : "EXERCITO";
   }
-  if (/PREFEITURA|MUNICIPIO|MUNICÍPIO/.test(orgao)) {
+
+  if (/PREFEITURA|MUNICIPIO/.test(orgao)) {
     const city = orgao
-      .replace(/PREFEITURA\s+(MUNICIPAL\s+)?(DE\s+)?/i, "")
-      .split(/[,-]/)[0]
-      .trim();
-    return uf ? `${city} - ${uf}` : city;
+      .replace(/PREFEITURA\s+(MUNICIPAL\s+)?(DE\s+|DO\s+|DA\s+)?/i, "")
+      .split(/\s+-\s+/)[0]
+      ?.trim();
+    return city && uf ? `${city} - ${uf}` : city || orgao;
   }
 
-  const short = orgao.split(/[,-]/)[0].trim().slice(0, 40);
-  return uf ? `${short} - ${uf}` : short;
+  if (/UNIVERSIDADE|FACULDADE|INSTITUTO FEDERAL|IFSP|IFMG/.test(orgao)) {
+    const shortName = orgao
+      .replace(/^UNIVERSIDADE\s+(FEDERAL|ESTADUAL|MUNICIPAL)\s+(DE\s+|DO\s+|DA\s+)?/i, "")
+      .trim();
+    const label = shortName.length > 55 ? shortName.slice(0, 55).trim() : shortName;
+    return uf ? `${label} - ${uf}` : label;
+  }
+
+  const primary = orgao.split(/\s+-\s+/)[0]?.trim() || orgao;
+  const label = primary.length > 60 ? primary.slice(0, 60).trim() : primary;
+  return uf ? `${label} - ${uf}` : label;
 }
 
 function inferLocalEntrega(pkg: ProposalPackage): string {
@@ -153,9 +212,13 @@ function buildItemsTable(pkg: ProposalPackage): string {
     "VALOR TOTAL",
   ];
 
-  const lines = [headers.join("\t")];
+  const lines = [headers.join("\t"), ""];
 
-  for (const item of pkg.itens) {
+  pkg.itens.forEach((item, index) => {
+    if (index > 0) {
+      lines.push("", "");
+    }
+
     lines.push(
       [
         item.numero,
@@ -167,7 +230,7 @@ function buildItemsTable(pkg: ProposalPackage): string {
         formatCurrencyBRL(item.valorTotal),
       ].join("\t")
     );
-  }
+  });
 
   return lines.join("\n");
 }

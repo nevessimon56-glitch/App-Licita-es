@@ -119,7 +119,7 @@ export function ProposalEmailPanel({ pkg, onEmailChange }: Props) {
             <input
               value={emailConfig.orgaoResumo}
               onChange={(e) => updateConfig({ orgaoResumo: e.target.value })}
-              placeholder="Ex.: EXERCITO - SP"
+              placeholder="Ex.: UNESP - SP ou EXERCITO - SP"
             />
           </label>
           <label className="proposal-field">
