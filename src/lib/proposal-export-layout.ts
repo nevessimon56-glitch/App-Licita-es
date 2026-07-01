@@ -5,6 +5,7 @@ import {
   PROPOSAL_SIGNATURE_SPACE_PDF,
   formatConditionForExport,
 } from "./proposal-export-styles";
+import { buildPregaoLine } from "./proposal-metadata";
 import { buildProposalCompanyHeader } from "./proposal-layout";
 import type { CompanyProfile, ProposalPackage } from "./proposal-types";
 
@@ -129,6 +130,7 @@ export function buildMetadataContent(pkg: ProposalPackage, company: CompanyProfi
   return [
     labeledLine("ORGÃO:", pkg.metadata.orgao),
     labeledLine("OBJETO:", pkg.metadata.objeto),
+    labeledLine("PREGÃO:", buildPregaoLine(pkg.metadata)),
     labeledLine("PROCESSO:", pkg.metadata.processo),
     labeledLine("ENDEREÇO DO ÓRGÃO:", pkg.metadata.enderecoOrgao),
     labeledLine("CRITERIO DE JULGAMENTO:", pkg.metadata.criterioJulgamento),

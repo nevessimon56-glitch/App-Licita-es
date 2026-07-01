@@ -25,6 +25,7 @@ import {
 import {
   STANDARD_DECLARACOES_PROPOSTA,
 } from "./proposal-template";
+import { buildPregaoLine } from "./proposal-metadata";
 import {
   PROPOSAL_TABLE_HEADERS,
   buildProposalCompanyHeader,
@@ -200,6 +201,7 @@ function buildMetadataBlock(pkg: ProposalPackage, company: CompanyProfile): (Par
   return [
     labeledParagraph("ORGÃO:", pkg.metadata.orgao),
     labeledParagraph("OBJETO:", pkg.metadata.objeto),
+    labeledParagraph("PREGÃO:", buildPregaoLine(pkg.metadata)),
     labeledParagraph("PROCESSO:", pkg.metadata.processo),
     labeledParagraph("ENDEREÇO DO ÓRGÃO:", pkg.metadata.enderecoOrgao),
     labeledParagraph("CRITERIO DE JULGAMENTO:", pkg.metadata.criterioJulgamento),
@@ -446,8 +448,8 @@ export function buildDeclarationsWordDocument(
     }),
     labeledParagraph("À", pkg.metadata.orgao),
     labeledParagraph("OBJETO:", pkg.metadata.objeto),
+    labeledParagraph("PREGÃO:", buildPregaoLine(pkg.metadata)),
     labeledParagraph("PROCESSO:", pkg.metadata.processo),
-    bodyParagraph(pkg.metadata.referencia.toUpperCase(), { size: FONT.table, spacingAfter: 80 }),
   ];
 
   for (const section of pkg.declaracoesHabilitacao) {

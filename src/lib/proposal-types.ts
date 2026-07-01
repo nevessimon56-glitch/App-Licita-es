@@ -57,6 +57,7 @@ export interface ProposalMetadata {
   orgao: string;
   objeto: string;
   processo: string;
+  numeroPregao: string;
   enderecoOrgao: string;
   horarioSessao: string;
   criterioJulgamento: string;

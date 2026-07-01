@@ -1,3 +1,4 @@
+import { buildPregaoLine } from "./proposal-metadata";
 import {
   buildItemSpecificationColumn,
   buildMarcaModeloLine,
@@ -60,6 +61,7 @@ export function buildProposalDocumentText(
     "",
     `ORGÃO: ${pkg.metadata.orgao.toUpperCase()}`,
     `OBJETO: ${pkg.metadata.objeto.toUpperCase()}`,
+    `PREGÃO: ${buildPregaoLine(pkg.metadata)}`,
     `PROCESSO: ${pkg.metadata.processo.toUpperCase()}`,
     `ENDEREÇO DO ÓRGÃO: ${pkg.metadata.enderecoOrgao.toUpperCase()}`,
     `CRITERIO DE JULGAMENTO: ${pkg.metadata.criterioJulgamento.toUpperCase()}`,
@@ -120,8 +122,8 @@ export function buildDeclarationsDocumentText(
     "DECLARAÇÕES",
     `À ${pkg.metadata.orgao.toUpperCase()}`,
     `OBJETO: ${pkg.metadata.objeto.toUpperCase()}`,
+    `PREGÃO: ${buildPregaoLine(pkg.metadata)}`,
     `PROCESSO: ${pkg.metadata.processo.toUpperCase()}`,
-    pkg.metadata.referencia.toUpperCase(),
     "",
   ];
 

@@ -349,10 +349,12 @@ export function ProposalPanel({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {(
               [
-                ["referencia", "Referência"],
                 ["orgao", "Órgão"],
                 ["objeto", "Objeto"],
+                ["tipoPregao", "Modalidade (ex.: PREGÃO ELETRÔNICO)"],
+                ["numeroPregao", "Número do pregão"],
                 ["processo", "Processo"],
+                ["referencia", "Referência completa (declarações)"],
                 ["horarioSessao", "Horário da sessão"],
                 ["criterioJulgamento", "Critério de julgamento"],
               ] as const

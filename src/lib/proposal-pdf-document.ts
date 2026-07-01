@@ -19,6 +19,7 @@ import {
 import {
   STANDARD_DECLARACOES_PROPOSTA,
 } from "./proposal-template";
+import { buildPregaoLine } from "./proposal-metadata";
 import {
   PROPOSAL_TABLE_HEADERS,
   buildProposalItemRows,
@@ -232,12 +233,8 @@ export function buildDeclarationsPdfDefinition(
     { text: "DECLARAÇÕES", style: "title" },
     labeledLine("À", pkg.metadata.orgao),
     labeledLine("OBJETO:", pkg.metadata.objeto),
+    labeledLine("PREGÃO:", buildPregaoLine(pkg.metadata)),
     labeledLine("PROCESSO:", pkg.metadata.processo),
-    {
-      text: sanitize(pkg.metadata.referencia.toUpperCase()),
-      fontSize: FONT.table,
-      margin: [0, 0, 0, 8],
-    },
   ];
 
   for (const section of pkg.declaracoesHabilitacao) {

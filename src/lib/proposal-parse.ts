@@ -92,6 +92,7 @@ export function normalizeProposalPackage(
       orgao: asString(metadata.orgao),
       objeto: asString(metadata.objeto),
       processo: asString(metadata.processo),
+      numeroPregao: asString(metadata.numeroPregao),
       enderecoOrgao: asString(metadata.enderecoOrgao),
       horarioSessao: asString(metadata.horarioSessao),
       criterioJulgamento: asString(metadata.criterioJulgamento),

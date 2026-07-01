@@ -23,7 +23,10 @@ REGRAS OBRIGATÓRIAS:
   5. Proposta
   Não inclua "Tipo de Pregão" nem "Enquadramento" no checklist — o sistema adiciona automaticamente.
 - criterioJulgamento: "MENOR PREÇO POR ITEM" ou "MENOR PREÇO GLOBAL POR LOTE" conforme edital.
-- referencia: formato "PREGÃO ELETRÔNICO Nº ... - EDITAL Nº ... - PROCESSO Nº ..."
+- referencia: formato "PREGÃO ELETRÔNICO Nº ... - PROCESSO Nº ..." (texto completo para declarações)
+- tipoPregao: modalidade da licitação (ex.: "PREGÃO ELETRÔNICO", "CONCORRÊNCIA ELETRÔNICA")
+- numeroPregao: número do pregão/licitação (ex.: "052/2026") — sem a palavra "Nº"
+- processo: número do processo administrativo (somente o número, ex.: "1234/2026")
 - valorTotalExtenso: deixe vazio.
 
 RESPONDA APENAS com JSON válido (sem markdown), neste schema:
@@ -37,6 +40,7 @@ RESPONDA APENAS com JSON válido (sem markdown), neste schema:
     "orgao": "",
     "objeto": "",
     "processo": "",
+    "numeroPregao": "",
     "enderecoOrgao": "",
     "horarioSessao": "",
     "criterioJulgamento": "",
