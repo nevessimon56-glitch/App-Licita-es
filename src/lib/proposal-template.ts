@@ -1,4 +1,4 @@
-import { buildPregaoLine, buildPregaoReferencia, buildReferenciaCompleta } from "./proposal-metadata";
+import { buildPregaoReferencia, buildReferenciaCompleta } from "./proposal-metadata";
 import type { CompanyProfile, ProposalMetadata, ProposalPackage } from "./proposal-types";
 
 /** Layout único — sem variação por município ou edital */
