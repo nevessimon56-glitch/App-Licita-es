@@ -66,6 +66,16 @@ export interface ProposalMetadata {
   lote: string;
 }
 
+export interface ProposalEmailConfig {
+  orgaoResumo: string;
+  uasg: string;
+  linkEdital: string;
+  localEntrega: string;
+  textoVigencia: string;
+  textoHabilitacao: string;
+  sufixoPregao: string;
+}
+
 export interface DeclarationSection {
   titulo: string;
   conteudo: string;
@@ -81,6 +91,7 @@ export interface ProposalPackage {
   valorTotalExtenso: string;
   generatedAt: string;
   model: string;
+  email?: ProposalEmailConfig;
 }
 
 export interface ProposalGenerateRequest {

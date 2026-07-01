@@ -7,6 +7,7 @@ import {
   Copy,
   FileText,
   Loader2,
+  Mail,
   RefreshCw,
   ScrollText,
   Settings2,
@@ -23,10 +24,11 @@ import {
 import { getValorTotalExtenso } from "@/lib/proposal-layout";
 import type { CompanyProfile, ProposalPackage } from "@/lib/proposal-types";
 import { CompanySelector } from "./CompanySelector";
+import { ProposalEmailPanel } from "./ProposalEmailPanel";
 import { ProposalExportButtons } from "./ProposalExportButtons";
 import { ProposalItemsEditor } from "./ProposalItemsEditor";
 
-type SubTab = "checklist" | "itens" | "proposta" | "declaracoes";
+type SubTab = "checklist" | "itens" | "proposta" | "declaracoes" | "email";
 
 interface Props {
   result: AnalysisResponse;
@@ -146,6 +148,7 @@ export function ProposalPanel({
     { id: "itens", label: "Itens", icon: FileText },
     { id: "proposta", label: "Proposta", icon: ScrollText },
     { id: "declaracoes", label: "Declarações", icon: FileText },
+    { id: "email", label: "E-mail", icon: Mail },
   ];
 
   return (
@@ -423,6 +426,13 @@ export function ProposalPanel({
             </div>
           ))}
         </div>
+      )}
+
+      {subTab === "email" && (
+        <ProposalEmailPanel
+          pkg={pkg}
+          onEmailChange={(email) => updatePackage({ email })}
+        />
       )}
     </section>
   );
