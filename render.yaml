@@ -20,3 +20,7 @@ services:
         value: gemini-2.5-flash
       - key: GEMINI_CHAT_MODEL
         value: gemini-2.5-flash
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false

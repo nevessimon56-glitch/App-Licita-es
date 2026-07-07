@@ -5,11 +5,13 @@ import { BarChart3, FileStack, Mail, MessageCircle } from "lucide-react";
 import { AnalysisResult } from "./AnalysisResult";
 import { ChatPanel } from "./ChatPanel";
 import { EmailPanel } from "./EmailPanel";
+import { ProposalHistoryPanel } from "./ProposalHistoryPanel";
 import { ProposalPanel } from "./ProposalPanel";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
 import { DEFAULT_COMPANY_ID, getCompanyById } from "@/lib/company-defaults";
 import { applyStandardProposalPackage } from "@/lib/proposal-template";
 import type { CompanyProfile, ProposalPackage } from "@/lib/proposal-types";
+import { isSupabaseEnabled } from "@/lib/supabase/config";
 
 type Tab = "analysis" | "email" | "proposal" | "chat";
 
@@ -18,6 +20,7 @@ interface Props {
 }
 
 export function ResultsTabs({ result }: Props) {
+  const supabaseEnabled = isSupabaseEnabled();
   const [activeTab, setActiveTab] = useState<Tab>("analysis");
   const [analysisMarkdown, setAnalysisMarkdown] = useState(result.analysis);
   const [proposalPackage, setProposalPackage] = useState<ProposalPackage | null>(null);
@@ -27,11 +30,16 @@ export function ResultsTabs({ result }: Props) {
   );
   const [proposalLoading, setProposalLoading] = useState(false);
   const [proposalError, setProposalError] = useState<string | null>(null);
+  const [savedAnalysisId, setSavedAnalysisId] = useState<string | null>(null);
+  const [savedProposalId, setSavedProposalId] = useState<string | null>(null);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   useEffect(() => {
     setAnalysisMarkdown(result.analysis);
     setProposalPackage(null);
     setProposalError(null);
+    setSavedAnalysisId(null);
+    setSavedProposalId(null);
   }, [result]);
 
   const editableResult: AnalysisResponse = {
@@ -60,6 +68,7 @@ export function ResultsTabs({ result }: Props) {
       }
 
       setProposalPackage(payload.package);
+      setSavedProposalId(null);
       if (payload.companyProfile) {
         setCompanyProfile(payload.companyProfile);
       }
@@ -85,6 +94,25 @@ export function ResultsTabs({ result }: Props) {
     if (proposalPackage) {
       setProposalPackage(applyStandardProposalPackage(proposalPackage, company));
     }
+  };
+
+  const handleLoadProposal = (
+    pkg: ProposalPackage,
+    proposalId: string,
+    companyId: string
+  ) => {
+    const company = getCompanyById(companyId);
+    setProposalPackage(pkg);
+    setSavedProposalId(proposalId);
+    setSelectedCompanyId(companyId);
+    setCompanyProfile(company);
+    setProposalError(null);
+    setActiveTab("proposal");
+  };
+
+  const handleProposalSaved = (proposalId: string) => {
+    setSavedProposalId(proposalId);
+    setHistoryRefreshKey((value) => value + 1);
   };
 
   return (
@@ -143,22 +171,36 @@ export function ResultsTabs({ result }: Props) {
         <AnalysisResult
           result={editableResult}
           onAnalysisChange={setAnalysisMarkdown}
+          supabaseEnabled={supabaseEnabled}
+          savedAnalysisId={savedAnalysisId}
+          onAnalysisSaved={setSavedAnalysisId}
         />
       ) : activeTab === "email" ? (
         <EmailPanel result={editableResult} />
       ) : activeTab === "proposal" ? (
-        <ProposalPanel
-          result={editableResult}
-          proposalPackage={proposalPackage}
-          companyProfile={companyProfile}
-          selectedCompanyId={selectedCompanyId}
-          loading={proposalLoading}
-          error={proposalError}
-          onGenerate={handleGenerateProposal}
-          onPackageChange={setProposalPackage}
-          onCompanyChange={handleCompanyChange}
-          onSelectCompany={handleSelectCompany}
-        />
+        <div className="space-y-4">
+          <ProposalHistoryPanel
+            supabaseEnabled={supabaseEnabled}
+            onLoadProposal={handleLoadProposal}
+            refreshKey={historyRefreshKey}
+          />
+          <ProposalPanel
+            result={editableResult}
+            proposalPackage={proposalPackage}
+            companyProfile={companyProfile}
+            selectedCompanyId={selectedCompanyId}
+            loading={proposalLoading}
+            error={proposalError}
+            supabaseEnabled={supabaseEnabled}
+            savedProposalId={savedProposalId}
+            savedAnalysisId={savedAnalysisId}
+            onGenerate={handleGenerateProposal}
+            onPackageChange={setProposalPackage}
+            onCompanyChange={handleCompanyChange}
+            onSelectCompany={handleSelectCompany}
+            onProposalSaved={handleProposalSaved}
+          />
+        </div>
       ) : (
         <ChatPanel result={editableResult} />
       )}

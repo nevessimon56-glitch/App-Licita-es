@@ -1,26 +1,92 @@
 "use client";
 
-import { FileText, Clock, Cpu, Layers } from "lucide-react";
+import { FileText, Clock, Cpu, Layers, Loader2, Save } from "lucide-react";
+import { useState } from "react";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
 import { MODE_LABELS } from "@/lib/analysis-prompt";
+import { saveAnalysisToHistory } from "@/lib/history-client";
 import { ExportButtons } from "./ExportButtons";
 import { EditableDocumentView } from "./EditableDocumentView";
 
 interface Props {
   result: AnalysisResponse;
   onAnalysisChange: (analysis: string) => void;
+  supabaseEnabled?: boolean;
+  savedAnalysisId?: string | null;
+  onAnalysisSaved?: (analysisId: string) => void;
 }
 
-export function AnalysisResult({ result, onAnalysisChange }: Props) {
+export function AnalysisResult({
+  result,
+  onAnalysisChange,
+  supabaseEnabled = false,
+  savedAnalysisId = null,
+  onAnalysisSaved,
+}: Props) {
   const generatedDate = new Date(result.generatedAt).toLocaleString("pt-BR");
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  async function handleSaveAnalysis() {
+    if (!supabaseEnabled) return;
+
+    setSaving(true);
+    setSaveMessage(null);
+    setSaveError(null);
+
+    try {
+      const { analysis } = await saveAnalysisToHistory({
+        analysisMarkdown: result.analysis,
+        analysisMode: result.mode,
+        documentNames: result.documentSummary.map((doc) => doc.name),
+      });
+      onAnalysisSaved?.(analysis.id);
+      setSaveMessage("Análise salva no histórico.");
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "Erro ao salvar análise."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <section className="space-y-6">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
           <h2 className="text-lg font-semibold text-slate-800">Resumo gerado</h2>
-          <ExportButtons result={result} />
+          <div className="flex flex-wrap items-center gap-2">
+            {supabaseEnabled ? (
+              <button
+                type="button"
+                onClick={() => void handleSaveAnalysis()}
+                disabled={saving}
+                className="inline-flex items-center gap-2 px-3 py-2 border border-blue-200 bg-blue-50 text-blue-800 rounded-lg text-sm font-medium hover:bg-blue-100 disabled:opacity-50"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {savedAnalysisId ? "Salvar novamente" : "Salvar no histórico"}
+              </button>
+            ) : null}
+            <ExportButtons result={result} />
+          </div>
         </div>
+
+        {saveMessage ? (
+          <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-4">
+            {saveMessage}
+          </p>
+        ) : null}
+        {saveError ? (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
+            {saveError}
+          </p>
+        ) : null}
 
         <p className="text-sm text-slate-600 mb-4">
           Seções marcadas como <strong>Editável</strong> podem ser corrigidas

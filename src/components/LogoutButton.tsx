@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { clearAuthSessionFlag } from "@/lib/site-auth";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { isSupabaseEnabled } from "@/lib/supabase/config";
 import { useState } from "react";
 import { LogOut } from "lucide-react";
 
@@ -12,8 +14,13 @@ export function LogoutButton() {
   async function handleLogout() {
     setLoading(true);
     try {
-      clearAuthSessionFlag();
-      await fetch("/api/auth/logout", { method: "POST" });
+      if (isSupabaseEnabled()) {
+        const supabase = createSupabaseBrowserClient();
+        await supabase.auth.signOut();
+      } else {
+        clearAuthSessionFlag();
+        await fetch("/api/auth/logout", { method: "POST" });
+      }
       router.replace("/login");
       router.refresh();
     } finally {

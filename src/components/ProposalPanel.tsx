@@ -9,6 +9,7 @@ import {
   Loader2,
   Mail,
   RefreshCw,
+  Save,
   ScrollText,
   Settings2,
 } from "lucide-react";
@@ -27,6 +28,7 @@ import { CompanySelector } from "./CompanySelector";
 import { ProposalEmailPanel } from "./ProposalEmailPanel";
 import { ProposalExportButtons } from "./ProposalExportButtons";
 import { ProposalItemsEditor } from "./ProposalItemsEditor";
+import { saveProposalToHistory } from "@/lib/history-client";
 
 type SubTab = "checklist" | "itens" | "proposta" | "declaracoes" | "email";
 
@@ -37,10 +39,14 @@ interface Props {
   selectedCompanyId: string;
   loading: boolean;
   error: string | null;
+  supabaseEnabled?: boolean;
+  savedProposalId?: string | null;
+  savedAnalysisId?: string | null;
   onGenerate: () => void;
   onPackageChange: (pkg: ProposalPackage) => void;
   onCompanyChange: (company: CompanyProfile) => void;
   onSelectCompany: (company: CompanyProfile) => void;
+  onProposalSaved?: (proposalId: string) => void;
 }
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -71,13 +77,20 @@ export function ProposalPanel({
   selectedCompanyId,
   loading,
   error,
+  supabaseEnabled = false,
+  savedProposalId = null,
+  savedAnalysisId = null,
   onGenerate,
   onPackageChange,
   onCompanyChange,
   onSelectCompany,
+  onProposalSaved,
 }: Props) {
   const [subTab, setSubTab] = useState<SubTab>("checklist");
   const [showCompany, setShowCompany] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const pkg = useMemo(
     () => (proposalPackage ? recalculateProposalTotals(proposalPackage) : null),
@@ -105,6 +118,35 @@ export function ProposalPanel({
     if (!pkg) return;
     onPackageChange({ ...pkg, ...patch });
   };
+
+  async function handleSaveProposal() {
+    if (!pkg || !supabaseEnabled) return;
+
+    setSaving(true);
+    setSaveMessage(null);
+    setSaveError(null);
+
+    try {
+      const { proposal } = await saveProposalToHistory({
+        pkg,
+        companyId: selectedCompanyId,
+        analysisId: savedAnalysisId,
+        proposalId: savedProposalId ?? undefined,
+      });
+      onProposalSaved?.(proposal.id);
+      setSaveMessage(
+        savedProposalId
+          ? "Proposta atualizada no histórico."
+          : "Proposta salva no histórico."
+      );
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "Erro ao salvar proposta."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (!pkg) {
     return (
@@ -166,6 +208,21 @@ export function ProposalPanel({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {supabaseEnabled ? (
+              <button
+                type="button"
+                onClick={() => void handleSaveProposal()}
+                disabled={saving}
+                className="inline-flex items-center gap-2 px-3 py-2 border border-blue-200 bg-blue-50 text-blue-800 rounded-lg text-sm font-medium hover:bg-blue-100 disabled:opacity-50"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {savedProposalId ? "Atualizar histórico" : "Salvar no histórico"}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => setShowCompany((v) => !v)}
@@ -189,6 +246,17 @@ export function ProposalPanel({
             </button>
           </div>
         </div>
+
+        {saveMessage ? (
+          <p className="mt-3 text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+            {saveMessage}
+          </p>
+        ) : null}
+        {saveError ? (
+          <p className="mt-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+            {saveError}
+          </p>
+        ) : null}
 
         <div className="mt-4">
           <CompanySelector
@@ -299,6 +367,7 @@ export function ProposalPanel({
           <ProposalItemsEditor
             itens={pkg.itens}
             onChange={(itens) => updatePackage({ itens })}
+            supabaseEnabled={supabaseEnabled}
           />
         </div>
       )}
