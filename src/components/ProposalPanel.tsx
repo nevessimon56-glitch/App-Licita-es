@@ -42,11 +42,12 @@ interface Props {
   supabaseEnabled?: boolean;
   savedProposalId?: string | null;
   savedAnalysisId?: string | null;
+  folderId?: string | null;
   onGenerate: () => void;
   onPackageChange: (pkg: ProposalPackage) => void;
   onCompanyChange: (company: CompanyProfile) => void;
   onSelectCompany: (company: CompanyProfile) => void;
-  onProposalSaved?: (proposalId: string) => void;
+  onProposalSaved?: (proposalId: string, folderId?: string | null) => void;
 }
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -80,6 +81,7 @@ export function ProposalPanel({
   supabaseEnabled = false,
   savedProposalId = null,
   savedAnalysisId = null,
+  folderId = null,
   onGenerate,
   onPackageChange,
   onCompanyChange,
@@ -132,8 +134,12 @@ export function ProposalPanel({
         companyId: selectedCompanyId,
         analysisId: savedAnalysisId,
         proposalId: savedProposalId ?? undefined,
+        folderId,
       });
-      onProposalSaved?.(proposal.id);
+      onProposalSaved?.(
+        proposal.id,
+        (proposal as { folder_id?: string }).folder_id ?? folderId
+      );
       setSaveMessage(
         savedProposalId
           ? "Proposta atualizada no histórico."

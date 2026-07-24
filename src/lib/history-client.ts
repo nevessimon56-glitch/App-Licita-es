@@ -30,6 +30,7 @@ export async function saveAnalysisToHistory(input: {
   analysisMode: string;
   documentNames: string[];
   title?: string;
+  folderId?: string | null;
 }) {
   const response = await fetch("/api/history/analyses", {
     method: "POST",
@@ -45,11 +46,46 @@ export async function listAnalysesHistory() {
   return parseJsonResponse<{ analyses: SavedAnalysisSummary[] }>(response);
 }
 
+export async function loadAnalysisFromHistory(analysisId: string) {
+  const response = await fetch(`/api/history/analyses/${analysisId}`);
+  return parseJsonResponse<{
+    analysis: {
+      id: string;
+      folder_id: string | null;
+      analysis_markdown: string;
+      analysis_mode: string;
+      document_names: string[];
+      title: string;
+      orgao: string;
+      numero_pregao: string;
+      processo: string;
+      updated_at: string;
+    };
+  }>(response);
+}
+
+export async function listFoldersHistory() {
+  const response = await fetch("/api/history/folders");
+  return parseJsonResponse<{
+    folders: Array<{
+      id: string;
+      title: string;
+      orgao: string;
+      numero_pregao: string;
+      expires_at: string;
+      updated_at: string;
+      analyses_count: number;
+      proposals_count: number;
+    }>;
+  }>(response);
+}
+
 export async function saveProposalToHistory(input: {
   pkg: ProposalPackage;
   companyId: string;
   analysisId?: string | null;
   proposalId?: string;
+  folderId?: string | null;
 }) {
   const isUpdate = Boolean(input.proposalId);
   const response = await fetch("/api/history/proposals", {
@@ -64,7 +100,11 @@ export async function saveProposalToHistory(input: {
 export async function loadProposalFromHistory(proposalId: string) {
   const response = await fetch(`/api/history/proposals/${proposalId}`);
   return parseJsonResponse<{
-    proposal: { package_data: ProposalPackage; company_id: string };
+    proposal: {
+      package_data: ProposalPackage;
+      company_id: string;
+      folder_id: string | null;
+    };
   }>(response);
 }
 

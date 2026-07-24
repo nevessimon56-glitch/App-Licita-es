@@ -7,6 +7,11 @@ import {
   isSupabaseEnabled,
 } from "@/lib/supabase/config";
 import {
+  ADMIN_COOKIE_NAME,
+  isAdminAuthEnabled,
+  verifyAdminSessionToken,
+} from "@/lib/admin-auth";
+import {
   AUTH_COOKIE_NAME,
   isAuthEnabled,
   verifySessionToken,
@@ -14,13 +19,56 @@ import {
 
 const PUBLIC_PATHS = new Set([
   "/login",
+  "/admin/login",
   "/api/auth/login",
   "/api/auth/logout",
+  "/api/admin/login",
+  "/api/admin/logout",
   "/api/health",
 ]);
 
+function isAdminPath(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
+}
+
+function isAdminApiPath(pathname: string): boolean {
+  return pathname.startsWith("/api/admin/");
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (isAdminPath(pathname) || isAdminApiPath(pathname)) {
+    if (PUBLIC_PATHS.has(pathname)) {
+      return NextResponse.next();
+    }
+
+    if (!isAdminAuthEnabled()) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "Painel admin não configurado." },
+          { status: 503 }
+        );
+      }
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+
+    const adminToken = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
+    const isAdmin = await verifyAdminSessionToken(adminToken);
+
+    if (!isAdmin) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+      }
+      const loginUrl = new URL("/admin/login", request.url);
+      if (pathname !== "/admin") {
+        loginUrl.searchParams.set("from", pathname);
+      }
+      return NextResponse.redirect(loginUrl);
+    }
+
+    return NextResponse.next();
+  }
 
   if (isSupabaseEnabled()) {
     let response = NextResponse.next({ request });

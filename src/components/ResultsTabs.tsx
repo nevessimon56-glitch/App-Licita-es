@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BarChart3, FileStack, Mail, MessageCircle } from "lucide-react";
 import { AnalysisResult } from "./AnalysisResult";
+import { AnalysisHistoryPanel } from "./AnalysisHistoryPanel";
 import { ChatPanel } from "./ChatPanel";
 import { EmailPanel } from "./EmailPanel";
 import { ProposalHistoryPanel } from "./ProposalHistoryPanel";
@@ -11,15 +12,26 @@ import type { AnalysisResponse } from "@/lib/analysis-prompt";
 import { DEFAULT_COMPANY_ID, getCompanyById } from "@/lib/company-defaults";
 import { applyStandardProposalPackage } from "@/lib/proposal-template";
 import type { CompanyProfile, ProposalPackage } from "@/lib/proposal-types";
+import type { RestoredAnalysisRecord } from "@/lib/restore-analysis";
 import { isSupabaseEnabled } from "@/lib/supabase/config";
 
 type Tab = "analysis" | "email" | "proposal" | "chat";
 
 interface Props {
   result: AnalysisResponse;
+  folderId?: string | null;
+  onFolderChange?: (folderId: string | null) => void;
+  onHistoryRefresh?: () => void;
+  historyRefreshKey?: number;
 }
 
-export function ResultsTabs({ result }: Props) {
+export function ResultsTabs({
+  result,
+  folderId = null,
+  onFolderChange,
+  onHistoryRefresh,
+  historyRefreshKey = 0,
+}: Props) {
   const supabaseEnabled = isSupabaseEnabled();
   const [activeTab, setActiveTab] = useState<Tab>("analysis");
   const [analysisMarkdown, setAnalysisMarkdown] = useState(result.analysis);
@@ -32,7 +44,6 @@ export function ResultsTabs({ result }: Props) {
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [savedAnalysisId, setSavedAnalysisId] = useState<string | null>(null);
   const [savedProposalId, setSavedProposalId] = useState<string | null>(null);
-  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   useEffect(() => {
     setAnalysisMarkdown(result.analysis);
@@ -99,7 +110,8 @@ export function ResultsTabs({ result }: Props) {
   const handleLoadProposal = (
     pkg: ProposalPackage,
     proposalId: string,
-    companyId: string
+    companyId: string,
+    loadedFolderId?: string | null
   ) => {
     const company = getCompanyById(companyId);
     setProposalPackage(pkg);
@@ -107,12 +119,29 @@ export function ResultsTabs({ result }: Props) {
     setSelectedCompanyId(companyId);
     setCompanyProfile(company);
     setProposalError(null);
+    if (loadedFolderId) {
+      onFolderChange?.(loadedFolderId);
+    }
     setActiveTab("proposal");
   };
 
-  const handleProposalSaved = (proposalId: string) => {
+  const handleLoadAnalysis = (analysis: RestoredAnalysisRecord) => {
+    setAnalysisMarkdown(analysis.analysis_markdown);
+    setSavedAnalysisId(analysis.id);
+    onFolderChange?.(analysis.folder_id);
+    setActiveTab("analysis");
+  };
+
+  const handleAnalysisSaved = (analysisId: string, newFolderId?: string | null) => {
+    setSavedAnalysisId(analysisId);
+    if (newFolderId) onFolderChange?.(newFolderId);
+    onHistoryRefresh?.();
+  };
+
+  const handleProposalSaved = (proposalId: string, newFolderId?: string | null) => {
     setSavedProposalId(proposalId);
-    setHistoryRefreshKey((value) => value + 1);
+    if (newFolderId) onFolderChange?.(newFolderId);
+    onHistoryRefresh?.();
   };
 
   return (
@@ -168,13 +197,22 @@ export function ResultsTabs({ result }: Props) {
       </div>
 
       {activeTab === "analysis" ? (
-        <AnalysisResult
-          result={editableResult}
-          onAnalysisChange={setAnalysisMarkdown}
-          supabaseEnabled={supabaseEnabled}
-          savedAnalysisId={savedAnalysisId}
-          onAnalysisSaved={setSavedAnalysisId}
-        />
+        <div className="space-y-4">
+          <AnalysisHistoryPanel
+            supabaseEnabled={supabaseEnabled}
+            folderId={folderId}
+            refreshKey={historyRefreshKey}
+            onLoadAnalysis={handleLoadAnalysis}
+          />
+          <AnalysisResult
+            result={editableResult}
+            onAnalysisChange={setAnalysisMarkdown}
+            supabaseEnabled={supabaseEnabled}
+            savedAnalysisId={savedAnalysisId}
+            folderId={folderId}
+            onAnalysisSaved={handleAnalysisSaved}
+          />
+        </div>
       ) : activeTab === "email" ? (
         <EmailPanel result={editableResult} />
       ) : activeTab === "proposal" ? (
@@ -194,6 +232,7 @@ export function ResultsTabs({ result }: Props) {
             supabaseEnabled={supabaseEnabled}
             savedProposalId={savedProposalId}
             savedAnalysisId={savedAnalysisId}
+            folderId={folderId}
             onGenerate={handleGenerateProposal}
             onPackageChange={setProposalPackage}
             onCompanyChange={handleCompanyChange}

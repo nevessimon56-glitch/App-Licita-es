@@ -2,7 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Mail, Scale, UserPlus } from "lucide-react";
+import Link from "next/link";
+import { Loader2, Mail, Scale, Shield, UserPlus } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Mode = "login" | "register";
@@ -188,6 +189,16 @@ export function SupabaseAuthForm() {
             {mode === "register" ? "Criar conta e entrar" : "Entrar"}
           </button>
         </form>
+
+        <p className="text-center text-sm text-slate-500 mt-6">
+          <Link
+            href="/admin/login"
+            className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900"
+          >
+            <Shield className="w-4 h-4" />
+            Acesso administrativo
+          </Link>
+        </p>
       </div>
     </div>
   );

@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       companyId?: string;
       pkg?: ProposalPackage;
       proposalId?: string;
+      folderId?: string | null;
     };
 
     if (!body.pkg) {
@@ -46,6 +47,8 @@ export async function POST(request: Request) {
       companyId: body.companyId ?? "torquato-filial-palmas",
       pkg: body.pkg,
       proposalId: body.proposalId,
+      folderId: body.folderId,
+      userEmail: user.email,
     });
 
     return NextResponse.json({ proposal });
@@ -69,6 +72,7 @@ export async function PUT(request: Request) {
       analysisId?: string | null;
       companyId?: string;
       pkg?: ProposalPackage;
+      folderId?: string | null;
     };
 
     if (!body.proposalId || !body.pkg) {
@@ -83,6 +87,8 @@ export async function PUT(request: Request) {
       analysisId: body.analysisId ?? null,
       companyId: body.companyId ?? "torquato-filial-palmas",
       pkg: body.pkg,
+      folderId: body.folderId,
+      userEmail: user.email,
     });
 
     return NextResponse.json({ proposal });

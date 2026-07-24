@@ -19,7 +19,12 @@ interface ProposalSummary {
 }
 
 interface Props {
-  onLoadProposal: (pkg: ProposalPackage, proposalId: string, companyId: string) => void;
+  onLoadProposal: (
+    pkg: ProposalPackage,
+    proposalId: string,
+    companyId: string,
+    folderId?: string | null
+  ) => void;
   supabaseEnabled: boolean;
   refreshKey?: number;
 }
@@ -73,7 +78,7 @@ export function ProposalHistoryPanel({
         company
       );
 
-      onLoadProposal(pkg, proposalId, companyId);
+      onLoadProposal(pkg, proposalId, companyId, data.proposal.folder_id ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao abrir proposta.");
     } finally {

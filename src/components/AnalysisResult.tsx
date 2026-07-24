@@ -13,7 +13,8 @@ interface Props {
   onAnalysisChange: (analysis: string) => void;
   supabaseEnabled?: boolean;
   savedAnalysisId?: string | null;
-  onAnalysisSaved?: (analysisId: string) => void;
+  folderId?: string | null;
+  onAnalysisSaved?: (analysisId: string, folderId?: string | null) => void;
 }
 
 export function AnalysisResult({
@@ -21,6 +22,7 @@ export function AnalysisResult({
   onAnalysisChange,
   supabaseEnabled = false,
   savedAnalysisId = null,
+  folderId = null,
   onAnalysisSaved,
 }: Props) {
   const generatedDate = new Date(result.generatedAt).toLocaleString("pt-BR");
@@ -40,8 +42,9 @@ export function AnalysisResult({
         analysisMarkdown: result.analysis,
         analysisMode: result.mode,
         documentNames: result.documentSummary.map((doc) => doc.name),
+        folderId,
       });
-      onAnalysisSaved?.(analysis.id);
+      onAnalysisSaved?.(analysis.id, (analysis as { folder_id?: string }).folder_id ?? folderId);
       setSaveMessage("Análise salva no histórico.");
     } catch (err) {
       setSaveError(

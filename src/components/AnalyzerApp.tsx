@@ -14,8 +14,15 @@ import {
   Zap,
 } from "lucide-react";
 import { ResultsTabs } from "./ResultsTabs";
+import { MyFoldersPanel } from "./MyFoldersPanel";
+import { AnalysisHistoryPanel } from "./AnalysisHistoryPanel";
 import type { AnalysisMode, AnalysisResponse } from "@/lib/analysis-prompt";
 import { MODE_LABELS } from "@/lib/analysis-prompt";
+import {
+  buildAnalysisResponseFromHistory,
+  type RestoredAnalysisRecord,
+} from "@/lib/restore-analysis";
+import { isSupabaseEnabled } from "@/lib/supabase/config";
 import { MAX_FILES_PER_ANALYSIS, validateFileCount } from "@/lib/file-limits";
 import {
   ACCEPTED_FILE_INPUT,
@@ -48,12 +55,15 @@ const LOADING_STEPS = [
 ];
 
 export function AnalyzerApp({ showLogout = false }: { showLogout?: boolean }) {
+  const supabaseEnabled = isSupabaseEnabled();
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResponse | null>(null);
+  const [folderId, setFolderId] = useState<string | null>(null);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("completo");
 
@@ -134,6 +144,7 @@ export function AnalyzerApp({ showLogout = false }: { showLogout?: boolean }) {
       }
 
       setResult(data as AnalysisResponse);
+      setFolderId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido.");
     } finally {
@@ -141,6 +152,11 @@ export function AnalyzerApp({ showLogout = false }: { showLogout?: boolean }) {
       clearInterval(elapsedInterval);
       setLoading(false);
     }
+  };
+
+  const handleLoadSavedAnalysis = (analysis: RestoredAnalysisRecord) => {
+    setResult(buildAnalysisResponseFromHistory(analysis));
+    setFolderId(analysis.folder_id);
   };
 
   return (
@@ -360,8 +376,34 @@ export function AnalyzerApp({ showLogout = false }: { showLogout?: boolean }) {
           )}
         </section>
 
+        {supabaseEnabled ? (
+          <div className="space-y-4">
+            <MyFoldersPanel
+              supabaseEnabled={supabaseEnabled}
+              onSelectFolder={setFolderId}
+              refreshKey={historyRefreshKey}
+            />
+            {!result ? (
+              <AnalysisHistoryPanel
+                supabaseEnabled={supabaseEnabled}
+                folderId={folderId}
+                refreshKey={historyRefreshKey}
+                onLoadAnalysis={handleLoadSavedAnalysis}
+              />
+            ) : null}
+          </div>
+        ) : null}
+
         {/* Results */}
-        {result && <ResultsTabs result={result} />}
+        {result ? (
+          <ResultsTabs
+            result={result}
+            folderId={folderId}
+            onFolderChange={setFolderId}
+            historyRefreshKey={historyRefreshKey}
+            onHistoryRefresh={() => setHistoryRefreshKey((value) => value + 1)}
+          />
+        ) : null}
       </main>
 
       <footer className="border-t border-slate-200 mt-12 py-6 text-center text-xs text-slate-400">

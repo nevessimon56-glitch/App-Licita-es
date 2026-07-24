@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { saveAnalysis } from "@/lib/supabase/repository";
+import { saveAnalysis, listRecentAnalyses } from "@/lib/supabase/repository";
 import { requireSupabaseApiUser } from "@/lib/supabase/api-auth";
 
 export async function GET() {
@@ -8,18 +8,15 @@ export async function GET() {
 
   const { supabase, user } = auth as Exclude<typeof auth, { error: NextResponse }>;
 
-  const { data, error } = await supabase
-    .from("user_analyses")
-    .select("id, title, orgao, objeto, numero_pregao, processo, analysis_mode, created_at, updated_at")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(30);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    const analyses = await listRecentAnalyses(supabase, user.id);
+    return NextResponse.json({ analyses });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Erro ao listar análises." },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ analyses: data ?? [] });
 }
 
 export async function POST(request: Request) {
@@ -38,6 +35,7 @@ export async function POST(request: Request) {
       objeto?: string;
       numeroPregao?: string;
       processo?: string;
+      folderId?: string | null;
     };
 
     if (!body.analysisMarkdown?.trim()) {
@@ -56,6 +54,8 @@ export async function POST(request: Request) {
       objeto: body.objeto,
       numeroPregao: body.numeroPregao,
       processo: body.processo,
+      folderId: body.folderId,
+      userEmail: user.email,
     });
 
     return NextResponse.json({ analysis });

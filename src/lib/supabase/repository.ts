@@ -3,8 +3,23 @@ import { getProposalGrandTotal } from "@/lib/proposal-layout";
 import { buildPregaoLine } from "@/lib/proposal-metadata";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+const RETENTION_DAYS = 30;
+
+export interface SavedFolderRow {
+  id: string;
+  title: string;
+  orgao: string;
+  numero_pregao: string;
+  processo: string;
+  objeto: string;
+  created_at: string;
+  updated_at: string;
+  expires_at: string;
+}
+
 export interface SavedAnalysisRow {
   id: string;
+  folder_id: string | null;
   title: string;
   orgao: string;
   objeto: string;
@@ -19,6 +34,7 @@ export interface SavedAnalysisRow {
 
 export interface SavedProposalRow {
   id: string;
+  folder_id: string | null;
   analysis_id: string | null;
   company_id: string;
   title: string;
@@ -46,6 +62,36 @@ export interface ProductCatalogRow {
   last_used_at: string | null;
 }
 
+export interface AdminAuditRow {
+  id: string;
+  user_id: string | null;
+  user_email: string;
+  folder_id: string | null;
+  folder_title: string;
+  action: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  summary: string;
+  changes: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface FolderListItem extends SavedFolderRow {
+  analyses_count: number;
+  proposals_count: number;
+}
+
+function buildFolderTitle(orgao: string, numeroPregao: string, processo: string) {
+  const org = orgao.trim() || "Sem órgão";
+  if (numeroPregao.trim()) {
+    return `${org} — PE ${numeroPregao.trim()}`;
+  }
+  if (processo.trim()) {
+    return `${org} — Proc. ${processo.trim()}`;
+  }
+  return org;
+}
+
 function buildProposalTitle(pkg: ProposalPackage): string {
   const orgao = pkg.metadata.orgao.trim() || "Sem órgão";
   const pregao = buildPregaoLine(pkg.metadata);
@@ -55,6 +101,17 @@ function buildProposalTitle(pkg: ProposalPackage): string {
 function extractOrgaoFromAnalysis(markdown: string): string {
   const match = markdown.match(/^##\s+(.+)$/m);
   return match?.[1]?.trim() ?? "";
+}
+
+function expiresAtFromNow(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + RETENTION_DAYS);
+  return date.toISOString();
+}
+
+function isFolderActive(expiresAt: string | null | undefined): boolean {
+  if (!expiresAt) return true;
+  return new Date(expiresAt).getTime() > Date.now();
 }
 
 export async function logUserActivity(
@@ -74,6 +131,121 @@ export async function logUserActivity(
   });
 }
 
+export async function logAdminAudit(
+  supabase: SupabaseClient,
+  input: {
+    userId: string;
+    userEmail?: string;
+    folderId?: string | null;
+    folderTitle?: string;
+    action: string;
+    entityType?: string;
+    entityId?: string;
+    summary?: string;
+    changes?: Record<string, unknown>;
+  }
+) {
+  await supabase.from("admin_audit_log").insert({
+    user_id: input.userId,
+    user_email: input.userEmail ?? "",
+    folder_id: input.folderId ?? null,
+    folder_title: input.folderTitle ?? "",
+    action: input.action,
+    entity_type: input.entityType ?? null,
+    entity_id: input.entityId ?? null,
+    summary: input.summary ?? "",
+    changes: input.changes ?? {},
+  });
+}
+
+export async function upsertFolderForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  input: {
+    orgao?: string;
+    numeroPregao?: string;
+    processo?: string;
+    objeto?: string;
+    folderId?: string | null;
+  }
+): Promise<SavedFolderRow> {
+  if (input.folderId) {
+    const { data, error } = await supabase
+      .from("user_folders")
+      .update({
+        updated_at: new Date().toISOString(),
+        expires_at: expiresAtFromNow(),
+      })
+      .eq("id", input.folderId)
+      .eq("user_id", userId)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return data as SavedFolderRow;
+  }
+
+  const orgao = input.orgao?.trim() ?? "";
+  const numeroPregao = input.numeroPregao?.trim() ?? "";
+  const processo = input.processo?.trim() ?? "";
+  const objeto = input.objeto?.trim() ?? "";
+  const title = buildFolderTitle(orgao, numeroPregao, processo);
+
+  if (orgao || numeroPregao || processo) {
+    let query = supabase
+      .from("user_folders")
+      .select("*")
+      .eq("user_id", userId)
+      .gt("expires_at", new Date().toISOString())
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    if (numeroPregao) {
+      query = query.eq("numero_pregao", numeroPregao);
+    }
+    if (orgao) {
+      query = query.ilike("orgao", orgao);
+    }
+
+    const { data: existing } = await query.maybeSingle();
+    if (existing) {
+      const { data, error } = await supabase
+        .from("user_folders")
+        .update({
+          title,
+          orgao,
+          numero_pregao: numeroPregao,
+          processo,
+          objeto: objeto || existing.objeto,
+          expires_at: expiresAtFromNow(),
+        })
+        .eq("id", existing.id)
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data as SavedFolderRow;
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("user_folders")
+    .insert({
+      user_id: userId,
+      title,
+      orgao,
+      numero_pregao: numeroPregao,
+      processo,
+      objeto,
+      expires_at: expiresAtFromNow(),
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as SavedFolderRow;
+}
+
 export async function saveAnalysis(
   supabase: SupabaseClient,
   userId: string,
@@ -86,15 +258,26 @@ export async function saveAnalysis(
     objeto?: string;
     numeroPregao?: string;
     processo?: string;
+    folderId?: string | null;
+    userEmail?: string;
   }
 ): Promise<SavedAnalysisRow> {
   const orgao = input.orgao?.trim() || extractOrgaoFromAnalysis(input.analysisMarkdown);
   const title = input.title?.trim() || orgao || "Análise sem título";
 
+  const folder = await upsertFolderForUser(supabase, userId, {
+    orgao,
+    numeroPregao: input.numeroPregao,
+    processo: input.processo,
+    objeto: input.objeto,
+    folderId: input.folderId,
+  });
+
   const { data, error } = await supabase
     .from("user_analyses")
     .insert({
       user_id: userId,
+      folder_id: folder.id,
       title,
       orgao,
       objeto: input.objeto ?? "",
@@ -109,7 +292,25 @@ export async function saveAnalysis(
 
   if (error) throw new Error(error.message);
 
-  await logUserActivity(supabase, userId, "analysis_saved", "analysis", data.id);
+  await logUserActivity(supabase, userId, "analysis_saved", "analysis", data.id, {
+    folder_id: folder.id,
+  });
+
+  await logAdminAudit(supabase, {
+    userId,
+    userEmail: input.userEmail,
+    folderId: folder.id,
+    folderTitle: folder.title,
+    action: "analysis_saved",
+    entityType: "analysis",
+    entityId: data.id,
+    summary: `Salvou análise: ${title}`,
+    changes: {
+      analysis_mode: input.analysisMode,
+      document_count: input.documentNames.length,
+    },
+  });
+
   return data as SavedAnalysisRow;
 }
 
@@ -121,11 +322,22 @@ export async function saveProposal(
     companyId: string;
     pkg: ProposalPackage;
     proposalId?: string;
+    folderId?: string | null;
+    userEmail?: string;
   }
 ): Promise<SavedProposalRow> {
   const pkg = input.pkg;
+  const folder = await upsertFolderForUser(supabase, userId, {
+    orgao: pkg.metadata.orgao,
+    numeroPregao: buildPregaoLine(pkg.metadata),
+    processo: pkg.metadata.processo,
+    objeto: pkg.metadata.objeto,
+    folderId: input.folderId,
+  });
+
   const payload = {
     user_id: userId,
+    folder_id: folder.id,
     analysis_id: input.analysisId ?? null,
     company_id: input.companyId,
     title: buildProposalTitle(pkg),
@@ -137,11 +349,13 @@ export async function saveProposal(
     grand_total: getProposalGrandTotal(pkg),
   };
 
-  if (input.proposalId) {
+  const isUpdate = Boolean(input.proposalId);
+
+  if (isUpdate) {
     const { data, error } = await supabase
       .from("user_proposals")
       .update(payload)
-      .eq("id", input.proposalId)
+      .eq("id", input.proposalId!)
       .eq("user_id", userId)
       .select()
       .single();
@@ -149,6 +363,23 @@ export async function saveProposal(
     if (error) throw new Error(error.message);
     await syncProductsFromProposal(supabase, userId, pkg.itens);
     await logUserActivity(supabase, userId, "proposal_updated", "proposal", data.id);
+
+    await logAdminAudit(supabase, {
+      userId,
+      userEmail: input.userEmail,
+      folderId: folder.id,
+      folderTitle: folder.title,
+      action: "proposal_updated",
+      entityType: "proposal",
+      entityId: data.id,
+      summary: `Atualizou proposta: ${payload.title}`,
+      changes: {
+        company_id: input.companyId,
+        items_count: pkg.itens.length,
+        grand_total: payload.grand_total,
+      },
+    });
+
     return data as SavedProposalRow;
   }
 
@@ -162,6 +393,23 @@ export async function saveProposal(
 
   await syncProductsFromProposal(supabase, userId, pkg.itens);
   await logUserActivity(supabase, userId, "proposal_saved", "proposal", data.id);
+
+  await logAdminAudit(supabase, {
+    userId,
+    userEmail: input.userEmail,
+    folderId: folder.id,
+    folderTitle: folder.title,
+    action: "proposal_saved",
+    entityType: "proposal",
+    entityId: data.id,
+    summary: `Salvou proposta: ${payload.title}`,
+    changes: {
+      company_id: input.companyId,
+      items_count: pkg.itens.length,
+      grand_total: payload.grand_total,
+    },
+  });
+
   return data as SavedProposalRow;
 }
 
@@ -192,6 +440,100 @@ export async function syncProductsFromProposal(
   }
 }
 
+export async function listActiveFolders(
+  supabase: SupabaseClient,
+  userId: string,
+  limit = 30
+): Promise<FolderListItem[]> {
+  const { data: folders, error } = await supabase
+    .from("user_folders")
+    .select("*")
+    .eq("user_id", userId)
+    .gt("expires_at", new Date().toISOString())
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+  if (!folders?.length) return [];
+
+  const folderIds = folders.map((folder) => folder.id);
+
+  const [{ data: analyses }, { data: proposals }] = await Promise.all([
+    supabase
+      .from("user_analyses")
+      .select("folder_id")
+      .in("folder_id", folderIds),
+    supabase
+      .from("user_proposals")
+      .select("folder_id")
+      .in("folder_id", folderIds),
+  ]);
+
+  const analysisCounts = new Map<string, number>();
+  const proposalCounts = new Map<string, number>();
+
+  for (const row of analyses ?? []) {
+    if (!row.folder_id) continue;
+    analysisCounts.set(row.folder_id, (analysisCounts.get(row.folder_id) ?? 0) + 1);
+  }
+
+  for (const row of proposals ?? []) {
+    if (!row.folder_id) continue;
+    proposalCounts.set(row.folder_id, (proposalCounts.get(row.folder_id) ?? 0) + 1);
+  }
+
+  return folders.map((folder) => ({
+    ...(folder as SavedFolderRow),
+    analyses_count: analysisCounts.get(folder.id) ?? 0,
+    proposals_count: proposalCounts.get(folder.id) ?? 0,
+  }));
+}
+
+export async function listRecentAnalyses(
+  supabase: SupabaseClient,
+  userId: string,
+  limit = 30
+) {
+  const { data, error } = await supabase
+    .from("user_analyses")
+    .select(
+      "id, folder_id, title, orgao, objeto, numero_pregao, processo, analysis_mode, created_at, updated_at, user_folders(expires_at)"
+    )
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).filter((row) => {
+    const folder = row.user_folders as { expires_at?: string } | null;
+    if (!row.folder_id) return true;
+    return isFolderActive(folder?.expires_at);
+  });
+}
+
+export async function getAnalysisById(
+  supabase: SupabaseClient,
+  userId: string,
+  analysisId: string
+) {
+  const { data, error } = await supabase
+    .from("user_analyses")
+    .select("*, user_folders(expires_at)")
+    .eq("id", analysisId)
+    .eq("user_id", userId)
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  const folder = data.user_folders as { expires_at?: string } | null;
+  if (data.folder_id && !isFolderActive(folder?.expires_at)) {
+    throw new Error("Esta análise expirou (retenção de 30 dias).");
+  }
+
+  return data as SavedAnalysisRow;
+}
+
 export async function listRecentProposals(
   supabase: SupabaseClient,
   userId: string,
@@ -200,14 +542,19 @@ export async function listRecentProposals(
   const { data, error } = await supabase
     .from("user_proposals")
     .select(
-      "id, title, orgao, objeto, numero_pregao, processo, company_id, grand_total, created_at, updated_at"
+      "id, folder_id, title, orgao, objeto, numero_pregao, processo, company_id, grand_total, created_at, updated_at, user_folders(expires_at)"
     )
     .eq("user_id", userId)
     .order("updated_at", { ascending: false })
     .limit(limit);
 
   if (error) throw new Error(error.message);
-  return data ?? [];
+
+  return (data ?? []).filter((row) => {
+    const folder = row.user_folders as { expires_at?: string } | null;
+    if (!row.folder_id) return true;
+    return isFolderActive(folder?.expires_at);
+  });
 }
 
 export async function getProposalById(
@@ -217,13 +564,71 @@ export async function getProposalById(
 ) {
   const { data, error } = await supabase
     .from("user_proposals")
-    .select("*")
+    .select("*, user_folders(expires_at)")
     .eq("id", proposalId)
     .eq("user_id", userId)
     .single();
 
   if (error) throw new Error(error.message);
+
+  const folder = data.user_folders as { expires_at?: string } | null;
+  if (data.folder_id && !isFolderActive(folder?.expires_at)) {
+    throw new Error("Esta proposta expirou (retenção de 30 dias).");
+  }
+
   return data as SavedProposalRow;
+}
+
+export async function listAdminAuditLog(
+  supabase: SupabaseClient,
+  limit = 100,
+  userId?: string
+) {
+  let query = supabase
+    .from("admin_audit_log")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (userId) {
+    query = query.eq("user_id", userId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as AdminAuditRow[];
+}
+
+export async function listAdminUsersSummary(supabase: SupabaseClient) {
+  const { data: profiles, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, email, created_at")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  const [{ data: folders }, { data: audit }] = await Promise.all([
+    supabase.from("user_folders").select("user_id"),
+    supabase.from("admin_audit_log").select("user_id"),
+  ]);
+
+  const folderCounts = new Map<string, number>();
+  const auditCounts = new Map<string, number>();
+
+  for (const row of folders ?? []) {
+    folderCounts.set(row.user_id, (folderCounts.get(row.user_id) ?? 0) + 1);
+  }
+
+  for (const row of audit ?? []) {
+    if (!row.user_id) continue;
+    auditCounts.set(row.user_id, (auditCounts.get(row.user_id) ?? 0) + 1);
+  }
+
+  return (profiles ?? []).map((profile) => ({
+    ...profile,
+    folders_count: folderCounts.get(profile.id) ?? 0,
+    actions_count: auditCounts.get(profile.id) ?? 0,
+  }));
 }
 
 export async function listProductCatalog(
@@ -302,8 +707,10 @@ export function applyCatalogToItem(
       item.valorUnitario ?? catalog.valor_unitario_referencia ?? null,
     valorTotal:
       (item.valorUnitario ?? catalog.valor_unitario_referencia ?? null) !==
-        null && Number.isFinite(item.valorUnitario ?? catalog.valor_unitario_referencia)
-        ? item.quantidade * (item.valorUnitario ?? catalog.valor_unitario_referencia ?? 0)
+        null &&
+      Number.isFinite(item.valorUnitario ?? catalog.valor_unitario_referencia)
+        ? item.quantidade *
+          (item.valorUnitario ?? catalog.valor_unitario_referencia ?? 0)
         : item.valorTotal,
   };
 }
