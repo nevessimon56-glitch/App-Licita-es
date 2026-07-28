@@ -22,6 +22,7 @@ Execute **na ordem** (links diretos no GitHub):
 4. [004_analysis_cache.sql](https://github.com/nevessimon56-glitch/App-Licita-es/blob/main/supabase/migrations/004_analysis_cache.sql)
 5. [005_product_price_history.sql](https://github.com/nevessimon56-glitch/App-Licita-es/blob/main/supabase/migrations/005_product_price_history.sql)
 6. [006_security_hardening.sql](https://github.com/nevessimon56-glitch/App-Licita-es/blob/main/supabase/migrations/006_security_hardening.sql) — segurança (obrigatório)
+7. [007_admin_performance.sql](https://github.com/nevessimon56-glitch/App-Licita-es/blob/main/supabase/migrations/007_admin_performance.sql) — admin mais rápido (recomendado)
 
 ## 3. Autenticação de usuários
 

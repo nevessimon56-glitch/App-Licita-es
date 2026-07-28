@@ -597,25 +597,131 @@ export async function getProposalById(
 
 export async function listAdminAuditLog(
   supabase: SupabaseClient,
-  limit = 100,
-  userId?: string
+  options: {
+    limit?: number;
+    offset?: number;
+    userId?: string;
+    search?: string;
+  } = {}
 ) {
+  const limit = options.limit ?? 50;
+  const offset = options.offset ?? 0;
+
   let query = supabase
     .from("admin_audit_log")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
-  if (userId) {
-    query = query.eq("user_id", userId);
+  if (options.userId) {
+    query = query.eq("user_id", options.userId);
   }
 
-  const { data, error } = await query;
+  const search = options.search?.trim();
+  if (search) {
+    const term = `%${search.replace(/[%_,]/g, "")}%`;
+    query = query.or(
+      `user_email.ilike.${term},summary.ilike.${term},folder_title.ilike.${term}`
+    );
+  }
+
+  const { data, error, count } = await query;
   if (error) throw new Error(error.message);
-  return (data ?? []) as AdminAuditRow[];
+
+  return {
+    items: (data ?? []) as AdminAuditRow[],
+    total: count ?? 0,
+    limit,
+    offset,
+  };
+}
+
+export interface AdminDashboardStats {
+  users_count: number;
+  active_folders: number;
+  archived_folders: number;
+  audit_total: number;
+  audit_today: number;
+}
+
+export async function getAdminDashboardStats(
+  supabase: SupabaseClient
+): Promise<AdminDashboardStats> {
+  const { data, error } = await supabase.rpc("get_admin_dashboard_stats");
+  if (error) {
+    if (error.message.includes("get_admin_dashboard_stats")) {
+      return getAdminDashboardStatsLegacy(supabase);
+    }
+    throw new Error(error.message);
+  }
+
+  const stats = (data ?? {}) as Partial<AdminDashboardStats>;
+  return {
+    users_count: Number(stats.users_count ?? 0),
+    active_folders: Number(stats.active_folders ?? 0),
+    archived_folders: Number(stats.archived_folders ?? 0),
+    audit_total: Number(stats.audit_total ?? 0),
+    audit_today: Number(stats.audit_today ?? 0),
+  };
+}
+
+async function getAdminDashboardStatsLegacy(
+  supabase: SupabaseClient
+): Promise<AdminDashboardStats> {
+  const [
+    { count: usersCount },
+    { count: activeFolders },
+    { count: archivedFolders },
+    { count: auditTotal },
+  ] = await Promise.all([
+    supabase.from("profiles").select("*", { count: "exact", head: true }),
+    supabase
+      .from("user_folders")
+      .select("*", { count: "exact", head: true })
+      .gt("expires_at", new Date().toISOString()),
+    supabase
+      .from("user_folders_archive")
+      .select("*", { count: "exact", head: true }),
+    supabase.from("admin_audit_log").select("*", { count: "exact", head: true }),
+  ]);
+
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+  const { count: auditToday } = await supabase
+    .from("admin_audit_log")
+    .select("*", { count: "exact", head: true })
+    .gte("created_at", startOfDay.toISOString());
+
+  return {
+    users_count: usersCount ?? 0,
+    active_folders: activeFolders ?? 0,
+    archived_folders: archivedFolders ?? 0,
+    audit_total: auditTotal ?? 0,
+    audit_today: auditToday ?? 0,
+  };
 }
 
 export async function listAdminUsersSummary(supabase: SupabaseClient) {
+  const { data, error } = await supabase.rpc("get_admin_users_summary");
+  if (error) {
+    // Fallback se migration 007 ainda não rodou
+    if (error.message.includes("get_admin_users_summary")) {
+      return listAdminUsersSummaryLegacy(supabase);
+    }
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as Array<{
+    id: string;
+    full_name: string;
+    email: string;
+    created_at: string;
+    folders_count: number;
+    actions_count: number;
+  }>;
+}
+
+async function listAdminUsersSummaryLegacy(supabase: SupabaseClient) {
   const { data: profiles, error } = await supabase
     .from("profiles")
     .select("id, full_name, email, created_at")
@@ -645,6 +751,29 @@ export async function listAdminUsersSummary(supabase: SupabaseClient) {
     folders_count: folderCounts.get(profile.id) ?? 0,
     actions_count: auditCounts.get(profile.id) ?? 0,
   }));
+}
+
+export async function listAdminArchivedFolders(
+  supabase: SupabaseClient,
+  limit = 50,
+  offset = 0
+) {
+  const { data, error, count } = await supabase
+    .from("user_folders_archive")
+    .select("id, title, orgao, numero_pregao, user_id, expires_at, updated_at", {
+      count: "exact",
+    })
+    .order("updated_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) throw new Error(error.message);
+
+  return {
+    items: data ?? [],
+    total: count ?? 0,
+    limit,
+    offset,
+  };
 }
 
 export async function listProductCatalog(
