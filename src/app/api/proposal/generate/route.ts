@@ -3,6 +3,7 @@ import { generateProposalPackage } from "@/lib/proposal-generate";
 import type { ProposalGenerateRequest } from "@/lib/proposal-types";
 import { getOptionalSupabaseSession } from "@/lib/supabase/optional-auth";
 import { saveProposal } from "@/lib/supabase/repository";
+import { enforceApiRateLimit } from "@/lib/api-rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -11,6 +12,16 @@ export async function POST(request: NextRequest) {
   const startedAt = Date.now();
 
   try {
+    const session = await getOptionalSupabaseSession();
+    const rateLimited = enforceApiRateLimit(
+      request,
+      "proposal",
+      20,
+      60 * 60 * 1000,
+      session?.user.id
+    );
+    if (rateLimited) return rateLimited;
+
     const body = (await request.json()) as ProposalGenerateRequest & {
       analysisId?: string | null;
       folderId?: string | null;
@@ -37,7 +48,6 @@ export async function POST(request: NextRequest) {
     let savedFolderId: string | null = body.folderId ?? null;
     let autoSaved = false;
 
-    const session = await getOptionalSupabaseSession();
     if (session && body.companyProfile?.id) {
       try {
         const saved = await saveProposal(session.supabase, session.user.id, {

@@ -16,3 +16,8 @@ export function getSupabaseAnonKey(): string {
   if (!key) throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY não configurada.");
   return key;
 }
+
+/** Quando false, esconde "Criar conta" no login (cadastro só pelo admin no Supabase). */
+export function isRegistrationAllowed(): boolean {
+  return process.env.NEXT_PUBLIC_ALLOW_REGISTRATION !== "false";
+}

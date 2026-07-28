@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, Mail, Scale, Shield, UserPlus } from "lucide-react";
@@ -8,7 +8,11 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Mode = "login" | "register";
 
-export function SupabaseAuthForm() {
+interface Props {
+  allowRegistration?: boolean;
+}
+
+export function SupabaseAuthForm({ allowRegistration = true }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>("login");
@@ -21,6 +25,12 @@ export function SupabaseAuthForm() {
 
   const from = searchParams.get("from") || "/";
 
+  useEffect(() => {
+    if (!allowRegistration && mode === "register") {
+      setMode("login");
+    }
+  }, [allowRegistration, mode]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -31,6 +41,12 @@ export function SupabaseAuthForm() {
       const supabase = createSupabaseBrowserClient();
 
       if (mode === "register") {
+        if (!allowRegistration) {
+          throw new Error(
+            "Cadastro desativado. Peça ao administrador para criar seu usuário."
+          );
+        }
+
         const { error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
           password,
@@ -94,17 +110,19 @@ export function SupabaseAuthForm() {
           >
             Entrar
           </button>
-          <button
-            type="button"
-            onClick={() => setMode("register")}
-            className={`flex-1 rounded-xl px-4 py-2 text-sm font-medium ${
-              mode === "register"
-                ? "bg-blue-700 text-white"
-                : "bg-white border border-slate-200 text-slate-600"
-            }`}
-          >
-            Criar conta
-          </button>
+          {allowRegistration ? (
+            <button
+              type="button"
+              onClick={() => setMode("register")}
+              className={`flex-1 rounded-xl px-4 py-2 text-sm font-medium ${
+                mode === "register"
+                  ? "bg-blue-700 text-white"
+                  : "bg-white border border-slate-200 text-slate-600"
+              }`}
+            >
+              Criar conta
+            </button>
+          ) : null}
         </div>
 
         <form

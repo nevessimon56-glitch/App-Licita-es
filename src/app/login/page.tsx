@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { LoginForm } from "@/components/LoginForm";
 import { SupabaseAuthForm } from "@/components/SupabaseAuthForm";
-import { isSupabaseEnabled } from "@/lib/supabase/config";
+import { isSupabaseEnabled, isRegistrationAllowed } from "@/lib/supabase/config";
 
 /** Lê as variáveis NEXT_PUBLIC_* em tempo de execução (não só no build). */
 export const dynamic = "force-dynamic";
@@ -17,7 +17,11 @@ export default function LoginPage() {
         </div>
       }
     >
-      {useSupabase ? <SupabaseAuthForm /> : <LoginForm />}
+      {useSupabase ? (
+        <SupabaseAuthForm allowRegistration={isRegistrationAllowed()} />
+      ) : (
+        <LoginForm />
+      )}
     </Suspense>
   );
 }

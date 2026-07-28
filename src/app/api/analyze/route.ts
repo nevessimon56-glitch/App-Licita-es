@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { analyzeDocuments } from "@/lib/analyze";
 import { extractTextFromDocument } from "@/lib/document-extract";
 import { isAcceptedFile } from "@/lib/accepted-files";
-import { validateFileCount } from "@/lib/file-limits";
+import { validateFileCount, validateFileSizes } from "@/lib/file-limits";
 import type { UploadedDocument, AnalysisMode, AnalysisResponse } from "@/lib/analysis-prompt";
 import { hashDocumentBuffers } from "@/lib/document-hash";
 import { getOptionalSupabaseSession } from "@/lib/supabase/optional-auth";
+import { enforceApiRateLimit } from "@/lib/api-rate-limit";
 import {
   getCachedAnalysis,
   saveAnalysis,
@@ -54,6 +55,16 @@ export async function POST(request: NextRequest) {
   const startedAt = Date.now();
 
   try {
+    const session = await getOptionalSupabaseSession();
+    const rateLimited = enforceApiRateLimit(
+      request,
+      "analyze",
+      12,
+      60 * 60 * 1000,
+      session?.user.id
+    );
+    if (rateLimited) return rateLimited;
+
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
     const types = formData.getAll("types") as string[];
@@ -68,6 +79,11 @@ export async function POST(request: NextRequest) {
     const countError = validateFileCount(files.length);
     if (countError) {
       return NextResponse.json({ error: countError }, { status: 400 });
+    }
+
+    const sizeError = validateFileSizes(files);
+    if (sizeError) {
+      return NextResponse.json({ error: sizeError }, { status: 400 });
     }
 
     const rawMode = (formData.get("mode") as string) ?? "completo";
@@ -98,7 +114,6 @@ export async function POST(request: NextRequest) {
     }
 
     const contentHash = hashDocumentBuffers(fileBuffers, mode);
-    const session = await getOptionalSupabaseSession();
 
     if (session) {
       const cachedMarkdown = await getCachedAnalysis(

@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chatAboutLicitacao } from "@/lib/chat";
 import type { ChatMessage } from "@/lib/analysis-prompt";
+import { getOptionalSupabaseSession } from "@/lib/supabase/optional-auth";
+import { enforceApiRateLimit } from "@/lib/api-rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getOptionalSupabaseSession();
+    const rateLimited = enforceApiRateLimit(
+      request,
+      "chat",
+      80,
+      60 * 60 * 1000,
+      session?.user.id
+    );
+    if (rateLimited) return rateLimited;
+
     const body = await request.json();
     const messages = body.messages as ChatMessage[];
     const analysis = body.analysis as string | undefined;
