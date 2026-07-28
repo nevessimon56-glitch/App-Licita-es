@@ -125,6 +125,22 @@ export async function auditItemFieldEdit(input: {
   });
 }
 
+export async function auditUserEvent(input: {
+  action: string;
+  summary: string;
+  folderId?: string | null;
+  folderTitle?: string;
+  entityType?: string;
+  entityId?: string | null;
+  changes?: Record<string, unknown>;
+}) {
+  await fetch("/api/history/audit-event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
 export async function applyCatalogToItems(itens: ProposalItem[]) {
   const response = await fetch("/api/products/apply-catalog", {
     method: "POST",

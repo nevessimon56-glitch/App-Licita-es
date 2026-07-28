@@ -1,6 +1,7 @@
 "use client";
 
 import { Pencil } from "lucide-react";
+import { useRef } from "react";
 import {
   buildKvTableMarkdown,
   isSimpleKvTable,
@@ -12,14 +13,44 @@ interface Props {
   title: string;
   body: string;
   onBodyChange: (body: string) => void;
+  onSectionAudit?: (input: {
+    section: string;
+    oldBody: string;
+    newBody: string;
+  }) => void;
 }
 
-export function EditableSectionEditor({ title, body, onBodyChange }: Props) {
+export function EditableSectionEditor({
+  title,
+  body,
+  onBodyChange,
+  onSectionAudit,
+}: Props) {
   const useTableEditor = isSimpleKvTable(body);
   const table = useTableEditor ? parseKvTable(body) : null;
+  const snapshotRef = useRef(body);
+
+  function handleFocus() {
+    snapshotRef.current = body;
+  }
+
+  function handleBlur() {
+    if (!onSectionAudit) return;
+    if (snapshotRef.current.trim() === body.trim()) return;
+    onSectionAudit({
+      section: title,
+      oldBody: snapshotRef.current,
+      newBody: body,
+    });
+    snapshotRef.current = body;
+  }
 
   return (
-    <section className="doc-editable-section">
+    <section
+      className="doc-editable-section"
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+    >
       <div className="doc-editable-section-header">
         <h2 className="doc-section-title">{title}</h2>
         <span className="doc-editable-badge">

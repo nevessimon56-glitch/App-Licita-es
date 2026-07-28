@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BarChart3, FileStack, Mail, MessageCircle } from "lucide-react";
 import { AnalysisResult } from "./AnalysisResult";
 import { AnalysisHistoryPanel } from "./AnalysisHistoryPanel";
@@ -13,6 +13,8 @@ import { DEFAULT_COMPANY_ID, getCompanyById } from "@/lib/company-defaults";
 import { applyStandardProposalPackage } from "@/lib/proposal-template";
 import type { CompanyProfile, ProposalPackage } from "@/lib/proposal-types";
 import type { RestoredAnalysisRecord } from "@/lib/restore-analysis";
+import { buildAnalysisEditAudit } from "@/lib/analysis-edit-audit";
+import { auditUserEvent } from "@/lib/history-client";
 import { isSupabaseEnabled } from "@/lib/supabase/config";
 
 type Tab = "analysis" | "email" | "proposal" | "chat";
@@ -47,8 +49,10 @@ export function ResultsTabs({
   );
   const [savedProposalId, setSavedProposalId] = useState<string | null>(null);
   const [proposalAutoSaved, setProposalAutoSaved] = useState(false);
+  const originalAnalysisRef = useRef(result.analysis);
 
   useEffect(() => {
+    originalAnalysisRef.current = result.analysis;
     setAnalysisMarkdown(result.analysis);
     setProposalPackage(null);
     setProposalError(null);
@@ -80,6 +84,7 @@ export function ResultsTabs({
           analysisId: savedAnalysisId,
           folderId,
           proposalId: savedProposalId,
+          originalAnalysis: originalAnalysisRef.current,
         }),
       });
 
@@ -89,6 +94,26 @@ export function ResultsTabs({
       }
 
       setProposalPackage(payload.package);
+      if (supabaseEnabled) {
+        const editAudit = buildAnalysisEditAudit(
+          originalAnalysisRef.current,
+          analysisMarkdown
+        );
+        if (editAudit) {
+          void auditUserEvent({
+            action: "analysis_edited",
+            summary: `Resumo alterado antes da proposta (${editAudit.secoes_alteradas_count} seção(ões))`,
+            folderId,
+            entityType: "analysis",
+            entityId: savedAnalysisId,
+            changes: {
+              ...editAudit,
+              contexto: "antes de gerar proposta",
+            },
+          });
+        }
+      }
+
       if (payload.autoSaved && payload.savedProposalId) {
         setSavedProposalId(payload.savedProposalId);
         setProposalAutoSaved(true);
@@ -230,6 +255,12 @@ export function ResultsTabs({
             supabaseEnabled={supabaseEnabled}
             savedAnalysisId={savedAnalysisId}
             folderId={folderId}
+            originalAnalysis={originalAnalysisRef.current}
+            auditContext={{
+              folderId,
+              analysisId: savedAnalysisId,
+              proposalId: savedProposalId,
+            }}
             onAnalysisSaved={handleAnalysisSaved}
           />
         </div>

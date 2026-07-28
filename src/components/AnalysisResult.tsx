@@ -4,7 +4,9 @@ import { FileText, Clock, Cpu, Layers, Loader2, Save } from "lucide-react";
 import { useState } from "react";
 import type { AnalysisResponse } from "@/lib/analysis-prompt";
 import { MODE_LABELS } from "@/lib/analysis-prompt";
-import { saveAnalysisToHistory } from "@/lib/history-client";
+import { saveAnalysisToHistory, auditUserEvent } from "@/lib/history-client";
+import { buildAnalysisEditAudit } from "@/lib/analysis-edit-audit";
+import type { UserAuditContext } from "@/lib/audit-context";
 import { ExportButtons } from "./ExportButtons";
 import { EditableDocumentView } from "./EditableDocumentView";
 
@@ -14,6 +16,8 @@ interface Props {
   supabaseEnabled?: boolean;
   savedAnalysisId?: string | null;
   folderId?: string | null;
+  originalAnalysis?: string;
+  auditContext?: UserAuditContext;
   onAnalysisSaved?: (analysisId: string, folderId?: string | null) => void;
 }
 
@@ -23,6 +27,8 @@ export function AnalysisResult({
   supabaseEnabled = false,
   savedAnalysisId = null,
   folderId = null,
+  originalAnalysis,
+  auditContext,
   onAnalysisSaved,
 }: Props) {
   const generatedDate = new Date(result.generatedAt).toLocaleString("pt-BR");
@@ -38,6 +44,20 @@ export function AnalysisResult({
     setSaveError(null);
 
     try {
+      const baseline = originalAnalysis ?? result.analysis;
+      const editAudit = buildAnalysisEditAudit(baseline, result.analysis);
+      if (editAudit && supabaseEnabled) {
+        await auditUserEvent({
+          action: "analysis_edited",
+          summary: `Alterou o resumo da IA (${editAudit.secoes_alteradas_count} seção(ões))`,
+          folderId: auditContext?.folderId ?? folderId,
+          folderTitle: auditContext?.folderTitle,
+          entityType: "analysis",
+          entityId: savedAnalysisId,
+          changes: editAudit,
+        });
+      }
+
       const { analysis } = await saveAnalysisToHistory({
         analysisMarkdown: result.analysis,
         analysisMode: result.mode,
@@ -134,6 +154,13 @@ export function AnalysisResult({
           <EditableDocumentView
             markdown={result.analysis}
             onMarkdownChange={onAnalysisChange}
+            supabaseEnabled={supabaseEnabled}
+            auditContext={{
+              folderId: auditContext?.folderId ?? folderId,
+              folderTitle: auditContext?.folderTitle,
+              analysisId: savedAnalysisId ?? auditContext?.analysisId,
+              proposalId: auditContext?.proposalId,
+            }}
           />
         </div>
       </div>

@@ -12,10 +12,15 @@ import {
   updateSectionBody,
 } from "@/lib/markdown-sections";
 import { EditableSectionEditor } from "./EditableSectionEditor";
+import type { UserAuditContext } from "@/lib/audit-context";
+import { buildTextChangeSummary, countLineChanges } from "@/lib/text-change-summary";
+import { auditUserEvent } from "@/lib/history-client";
 
 interface Props {
   markdown: string;
   onMarkdownChange: (markdown: string) => void;
+  auditContext?: UserAuditContext;
+  supabaseEnabled?: boolean;
 }
 
 function DocBlock({ block }: { block: DocumentBlock }) {
@@ -141,7 +146,12 @@ function ReadOnlySection({ title, body }: { title: string; body: string }) {
   );
 }
 
-export function EditableDocumentView({ markdown, onMarkdownChange }: Props) {
+export function EditableDocumentView({
+  markdown,
+  onMarkdownChange,
+  auditContext,
+  supabaseEnabled = false,
+}: Props) {
   const { preamble, sections } = splitMarkdownSections(markdown);
   const preambleBlocks = parseDocumentMarkdown(preamble);
   const meta = extractDocumentMeta(parseDocumentMarkdown(markdown));
@@ -165,6 +175,33 @@ export function EditableDocumentView({ markdown, onMarkdownChange }: Props) {
     onMarkdownChange(updateSectionBody(markdown, title, body));
   };
 
+  function handleSectionAudit(input: {
+    section: string;
+    oldBody: string;
+    newBody: string;
+  }) {
+    if (!supabaseEnabled) return;
+
+    const change = buildTextChangeSummary(input.oldBody, input.newBody);
+    if (!change) return;
+
+    const lineChanges = countLineChanges(input.oldBody, input.newBody);
+
+    void auditUserEvent({
+      action: "analysis_section_edited",
+      summary: `Editou seção do resumo: ${input.section}`,
+      folderId: auditContext?.folderId,
+      folderTitle: auditContext?.folderTitle,
+      entityType: "analysis",
+      entityId: auditContext?.analysisId,
+      changes: {
+        secao: input.section,
+        ...change,
+        ...lineChanges,
+      },
+    });
+  }
+
   return (
     <article className="doc-report">
       <header className="doc-report-header">
@@ -185,6 +222,7 @@ export function EditableDocumentView({ markdown, onMarkdownChange }: Props) {
               title={section.title}
               body={section.body}
               onBodyChange={(body) => handleSectionChange(section.title, body)}
+              onSectionAudit={handleSectionAudit}
             />
           ) : (
             <ReadOnlySection

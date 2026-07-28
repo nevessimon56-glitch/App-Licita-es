@@ -166,6 +166,26 @@ export async function logAdminAudit(
   }
 }
 
+export async function logUserContentAudit(
+  supabase: SupabaseClient,
+  userId: string,
+  input: {
+    userEmail?: string;
+    folderId?: string | null;
+    folderTitle?: string;
+    action: string;
+    entityType?: string;
+    entityId?: string;
+    summary?: string;
+    changes?: Record<string, unknown>;
+  }
+) {
+  await logAdminAudit(supabase, {
+    userId,
+    ...input,
+  });
+}
+
 export async function upsertFolderForUser(
   supabase: SupabaseClient,
   userId: string,

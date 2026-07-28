@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateProposalPackage } from "@/lib/proposal-generate";
 import type { ProposalGenerateRequest } from "@/lib/proposal-types";
 import { getOptionalSupabaseSession } from "@/lib/supabase/optional-auth";
-import { saveProposal } from "@/lib/supabase/repository";
+import {
+  logUserContentAudit,
+  saveProposal,
+} from "@/lib/supabase/repository";
+import { buildAnalysisEditAudit } from "@/lib/analysis-edit-audit";
 import { enforceApiRateLimit } from "@/lib/api-rate-limit";
 
 export const runtime = "nodejs";
@@ -26,6 +30,7 @@ export async function POST(request: NextRequest) {
       analysisId?: string | null;
       folderId?: string | null;
       proposalId?: string | null;
+      originalAnalysis?: string;
     };
 
     if (!body.analysis?.trim()) {
@@ -47,6 +52,35 @@ export async function POST(request: NextRequest) {
     let savedProposalId: string | null = null;
     let savedFolderId: string | null = body.folderId ?? null;
     let autoSaved = false;
+
+    const analysisEditAudit =
+      body.originalAnalysis && body.originalAnalysis.trim() !== body.analysis.trim()
+        ? buildAnalysisEditAudit(body.originalAnalysis, body.analysis)
+        : null;
+
+    if (session) {
+      await logUserContentAudit(session.supabase, session.user.id, {
+        userEmail: session.user.email,
+        folderId: body.folderId,
+        action: "proposal_generated",
+        entityType: "proposal",
+        entityId: body.proposalId ?? undefined,
+        summary: `Gerou proposta (${result.package.itens.length} item(ns))`,
+        changes: {
+          modelo_ia: result.package.model,
+          itens_gerados: result.package.itens.length,
+          empresa: body.companyProfile?.id,
+          resumo_foi_editado: Boolean(analysisEditAudit),
+          ...(analysisEditAudit
+            ? {
+                secoes_alteradas_count: analysisEditAudit.secoes_alteradas_count,
+                linhas_adicionadas: analysisEditAudit.lines_added,
+                linhas_removidas: analysisEditAudit.lines_removed,
+              }
+            : {}),
+        },
+      });
+    }
 
     if (session && body.companyProfile?.id) {
       try {

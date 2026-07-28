@@ -23,9 +23,15 @@ interface AuditEntry {
 
 const ACTION_LABELS: Record<string, string> = {
   analysis_saved: "Análise salva",
+  analysis_section_edited: "Seção do resumo editada",
+  analysis_edited: "Resumo da IA alterado",
+  proposal_generated: "Proposta gerada",
   proposal_saved: "Proposta salva",
   proposal_updated: "Proposta atualizada",
-  item_field_edited: "Item editado",
+  proposal_item_added: "Item adicionado",
+  proposal_item_removed: "Item removido",
+  item_field_edited: "Campo do item editado",
+  catalog_applied: "Catálogo aplicado",
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -48,6 +54,22 @@ const FIELD_LABELS: Record<string, string> = {
   field: "Campo",
   de: "Valor anterior",
   para: "Valor novo",
+  secao: "Seção",
+  old_preview: "Texto anterior",
+  new_preview: "Texto novo",
+  lines_added: "Linhas adicionadas",
+  lines_removed: "Linhas removidas",
+  length_delta: "Variação de caracteres",
+  secoes_alteradas_count: "Seções alteradas",
+  modelo_ia: "Modelo IA",
+  itens_gerados: "Itens gerados",
+  resumo_foi_editado: "Resumo editado antes",
+  linhas_adicionadas: "Linhas adicionadas",
+  linhas_removidas: "Linhas removidas",
+  itens_preenchidos: "Itens preenchidos",
+  fabricante: "Fabricante",
+  marca_modelo: "Marca/Modelo",
+  valor_unitario: "Valor unitário",
 };
 
 interface Props {
@@ -63,22 +85,31 @@ export function AdminAuditEntryCard({ entry }: Props) {
   const documentos = Array.isArray(changes.documentos)
     ? changes.documentos.map(String)
     : [];
+  const secoesAlteradas = Array.isArray(changes.secoes_alteradas)
+    ? (changes.secoes_alteradas as Array<Record<string, unknown>>)
+    : [];
 
   const detailFields = Object.entries(changes).filter(
     ([key, value]) =>
       key !== "itens" &&
       key !== "documentos" &&
+      key !== "secoes_alteradas" &&
       key !== "grand_total" &&
+      key !== "old_preview" &&
+      key !== "new_preview" &&
       value !== "" &&
       value !== null &&
-      value !== undefined
+      value !== undefined &&
+      typeof value !== "boolean"
   );
 
   const hasDetails =
     detailFields.length > 0 ||
     itens.length > 0 ||
     documentos.length > 0 ||
-    entry.action === "item_field_edited";
+    secoesAlteradas.length > 0 ||
+    entry.action === "item_field_edited" ||
+    Boolean(changes.old_preview && changes.new_preview);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -103,6 +134,24 @@ export function AdminAuditEntryCard({ entry }: Props) {
               <span className="font-medium text-slate-800">
                 {formatAuditValue(changes.para)}
               </span>
+            </p>
+          ) : null}
+
+          {!expanded &&
+          (entry.action === "analysis_section_edited" ||
+            entry.action === "analysis_edited") &&
+          changes.secao ? (
+            <p className="text-xs text-amber-700 mt-2">
+              Seção: <strong>{String(changes.secao)}</strong>
+            </p>
+          ) : null}
+
+          {!expanded && entry.action === "proposal_generated" ? (
+            <p className="text-xs text-slate-600 mt-2">
+              {changes.resumo_foi_editado ? "Com edições no resumo · " : ""}
+              {typeof changes.itens_gerados === "number"
+                ? `${changes.itens_gerados} item(ns)`
+                : ""}
             </p>
           ) : null}
 
@@ -168,6 +217,53 @@ export function AdminAuditEntryCard({ entry }: Props) {
 
       {expanded && hasDetails ? (
         <div className="mt-4 pt-4 border-t border-slate-100 space-y-4">
+          {changes.old_preview && changes.new_preview ? (
+            <div className="space-y-3 text-sm">
+              <div>
+                <p className="text-xs font-medium text-red-700 mb-1">Antes</p>
+                <pre className="whitespace-pre-wrap bg-red-50 border border-red-100 rounded-lg p-3 text-xs text-slate-700 max-h-40 overflow-auto">
+                  {String(changes.old_preview)}
+                </pre>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-green-700 mb-1">Depois</p>
+                <pre className="whitespace-pre-wrap bg-green-50 border border-green-100 rounded-lg p-3 text-xs text-slate-700 max-h-40 overflow-auto">
+                  {String(changes.new_preview)}
+                </pre>
+              </div>
+            </div>
+          ) : null}
+
+          {secoesAlteradas.length ? (
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-slate-600">
+                Seções alteradas no resumo ({secoesAlteradas.length})
+              </p>
+              {secoesAlteradas.map((section) => (
+                <div
+                  key={String(section.secao)}
+                  className="rounded-lg border border-slate-200 p-3 text-xs space-y-2"
+                >
+                  <p className="font-medium text-slate-800">{String(section.secao)}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-red-700 font-medium mb-1">Antes</p>
+                      <pre className="whitespace-pre-wrap bg-red-50 p-2 rounded max-h-32 overflow-auto">
+                        {String(section.old_preview ?? "—")}
+                      </pre>
+                    </div>
+                    <div>
+                      <p className="text-green-700 font-medium mb-1">Depois</p>
+                      <pre className="whitespace-pre-wrap bg-green-50 p-2 rounded max-h-32 overflow-auto">
+                        {String(section.new_preview ?? "—")}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
           {detailFields.length ? (
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
               {detailFields.map(([key, value]) => (

@@ -4,7 +4,7 @@ import type { ProposalItem } from "@/lib/proposal-types";
 import { formatCurrencyBRL } from "@/lib/proposal-document";
 import { buildMarcaModeloParts } from "@/lib/proposal-layout";
 import { PROPOSAL_SEM_INSTALACAO_SUFFIX } from "@/lib/proposal-export-styles";
-import { applyCatalogToItems, auditItemFieldEdit } from "@/lib/history-client";
+import { applyCatalogToItems, auditItemFieldEdit, auditUserEvent } from "@/lib/history-client";
 import { ProductCatalogPicker } from "@/components/ProductCatalogPicker";
 import { Loader2, Sparkles } from "lucide-react";
 import { useRef, useState } from "react";
@@ -58,10 +58,11 @@ export function ProposalItemsEditor({
   };
 
   const addItem = () => {
+    const nextNumero = String(itens.length + 1);
     onChange([
       ...itens,
       {
-        numero: String(itens.length + 1),
+        numero: nextNumero,
         unidade: "UND",
         codigo: "",
         tituloProduto: "",
@@ -75,10 +76,41 @@ export function ProposalItemsEditor({
         valorTotal: null,
       },
     ]);
+
+    if (supabaseEnabled) {
+      void auditUserEvent({
+        action: "proposal_item_added",
+        summary: `Adicionou item ${nextNumero} na proposta`,
+        folderId: auditContext?.folderId,
+        folderTitle: auditContext?.folderTitle,
+        entityType: "proposal",
+        entityId: auditContext?.proposalId,
+        changes: { item_numero: nextNumero },
+      });
+    }
   };
 
   const removeItem = (index: number) => {
+    const item = itens[index];
     onChange(itens.filter((_, i) => i !== index));
+
+    if (supabaseEnabled && item) {
+      void auditUserEvent({
+        action: "proposal_item_removed",
+        summary: `Removeu item ${item.numero} da proposta`,
+        folderId: auditContext?.folderId,
+        folderTitle: auditContext?.folderTitle,
+        entityType: "proposal",
+        entityId: auditContext?.proposalId,
+        changes: {
+          item_numero: item.numero,
+          item_titulo: item.tituloProduto || item.descricao.slice(0, 80),
+          fabricante: item.fabricante,
+          marca_modelo: item.marcaModelo,
+          valor_unitario: item.valorUnitario,
+        },
+      });
+    }
   };
 
   function fieldKey(index: number, field: AuditField) {
@@ -146,6 +178,18 @@ export function ProposalItemsEditor({
           ? `Catálogo aplicado em ${filledCount} item(ns).`
           : "Nenhum item encontrado no catálogo ainda."
       );
+
+      if (filledCount > 0) {
+        void auditUserEvent({
+          action: "catalog_applied",
+          summary: `Aplicou catálogo em ${filledCount} item(ns)`,
+          folderId: auditContext?.folderId,
+          folderTitle: auditContext?.folderTitle,
+          entityType: "proposal",
+          entityId: auditContext?.proposalId,
+          changes: { itens_preenchidos: filledCount },
+        });
+      }
     } catch (err) {
       setCatalogMessage(
         err instanceof Error ? err.message : "Erro ao aplicar catálogo."
