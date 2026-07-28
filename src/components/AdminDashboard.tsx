@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminAuditEntryCard } from "@/components/AdminAuditEntryCard";
 import {
   Activity,
   Archive,
   ChevronLeft,
   ChevronRight,
-  FolderOpen,
   Loader2,
   LogOut,
   RefreshCw,
@@ -24,6 +24,8 @@ interface AuditEntry {
   action: string;
   summary: string;
   created_at: string;
+  entity_type?: string | null;
+  entity_id?: string | null;
   changes?: Record<string, unknown>;
 }
 
@@ -55,13 +57,6 @@ interface ArchivedFolder {
 }
 
 type View = "audit" | "users" | "archived";
-
-const ACTION_LABELS: Record<string, string> = {
-  analysis_saved: "Análise salva",
-  proposal_saved: "Proposta salva",
-  proposal_updated: "Proposta atualizada",
-  item_field_edited: "Item editado",
-};
 
 const PAGE_SIZE = 40;
 
@@ -411,49 +406,7 @@ export function AdminDashboard() {
 
             <div className="space-y-3">
               {audit.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="bg-white rounded-xl border border-slate-200 p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-slate-800">
-                        {entry.summary ||
-                          ACTION_LABELS[entry.action] ||
-                          entry.action}
-                      </p>
-                      <p className="text-sm text-slate-600 mt-1">
-                        <span className="font-medium">
-                          {entry.user_email || "Usuário"}
-                        </span>
-                        {entry.folder_title
-                          ? ` — pasta: ${entry.folder_title}`
-                          : ""}
-                      </p>
-                      {entry.action === "item_field_edited" &&
-                      entry.changes &&
-                      typeof entry.changes === "object" ? (
-                        <p className="text-xs text-slate-500 mt-2">
-                          {(entry.changes as { field?: string }).field}:{" "}
-                          <span className="line-through">
-                            {(entry.changes as { de?: string }).de || "—"}
-                          </span>
-                          {" → "}
-                          <span className="font-medium text-slate-700">
-                            {(entry.changes as { para?: string }).para || "—"}
-                          </span>
-                        </p>
-                      ) : null}
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      {new Date(entry.created_at).toLocaleString("pt-BR")}
-                    </p>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-2 inline-flex items-center gap-1">
-                    <FolderOpen className="w-3 h-3" />
-                    {ACTION_LABELS[entry.action] ?? entry.action}
-                  </p>
-                </div>
+                <AdminAuditEntryCard key={entry.id} entry={entry} />
               ))}
 
               {!audit.length && !loadingView ? (

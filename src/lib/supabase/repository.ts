@@ -1,3 +1,7 @@
+import {
+  buildAnalysisAuditChanges,
+  buildProposalAuditChanges,
+} from "@/lib/admin-audit-details";
 import type { ProposalItem, ProposalPackage } from "@/lib/proposal-types";
 import { getProposalGrandTotal } from "@/lib/proposal-layout";
 import { buildPregaoLine } from "@/lib/proposal-metadata";
@@ -309,10 +313,15 @@ export async function saveAnalysis(
     entityType: "analysis",
     entityId: data.id,
     summary: `Salvou análise: ${title}`,
-    changes: {
-      analysis_mode: input.analysisMode,
-      document_count: input.documentNames.length,
-    },
+    changes: buildAnalysisAuditChanges({
+      title,
+      orgao,
+      objeto: input.objeto,
+      numeroPregao: input.numeroPregao,
+      processo: input.processo,
+      analysisMode: input.analysisMode,
+      documentNames: input.documentNames,
+    }),
   });
 
   return data as SavedAnalysisRow;
@@ -383,11 +392,11 @@ export async function saveProposal(
       entityType: "proposal",
       entityId: data.id,
       summary: `Atualizou proposta: ${payload.title}`,
-      changes: {
-        company_id: input.companyId,
-        items_count: pkg.itens.length,
-        grand_total: payload.grand_total,
-      },
+      changes: buildProposalAuditChanges({
+        pkg,
+        companyId: input.companyId,
+        grandTotal: payload.grand_total,
+      }),
     });
 
     return data as SavedProposalRow;
@@ -419,11 +428,11 @@ export async function saveProposal(
     entityType: "proposal",
     entityId: data.id,
     summary: `Salvou proposta: ${payload.title}`,
-    changes: {
-      company_id: input.companyId,
-      items_count: pkg.itens.length,
-      grand_total: payload.grand_total,
-    },
+    changes: buildProposalAuditChanges({
+      pkg,
+      companyId: input.companyId,
+      grandTotal: payload.grand_total,
+    }),
   });
 
   return data as SavedProposalRow;
