@@ -42,16 +42,23 @@ export function ResultsTabs({
   );
   const [proposalLoading, setProposalLoading] = useState(false);
   const [proposalError, setProposalError] = useState<string | null>(null);
-  const [savedAnalysisId, setSavedAnalysisId] = useState<string | null>(null);
+  const [savedAnalysisId, setSavedAnalysisId] = useState<string | null>(
+    result.savedAnalysisId ?? null
+  );
   const [savedProposalId, setSavedProposalId] = useState<string | null>(null);
+  const [proposalAutoSaved, setProposalAutoSaved] = useState(false);
 
   useEffect(() => {
     setAnalysisMarkdown(result.analysis);
     setProposalPackage(null);
     setProposalError(null);
-    setSavedAnalysisId(null);
+    setSavedAnalysisId(result.savedAnalysisId ?? null);
     setSavedProposalId(null);
-  }, [result]);
+    setProposalAutoSaved(false);
+    if (result.savedFolderId) {
+      onFolderChange?.(result.savedFolderId);
+    }
+  }, [result, onFolderChange]);
 
   const editableResult: AnalysisResponse = {
     ...result,
@@ -70,6 +77,9 @@ export function ResultsTabs({
           analysis: analysisMarkdown,
           documents: result.documents,
           companyProfile,
+          analysisId: savedAnalysisId,
+          folderId,
+          proposalId: savedProposalId,
         }),
       });
 
@@ -79,7 +89,17 @@ export function ResultsTabs({
       }
 
       setProposalPackage(payload.package);
-      setSavedProposalId(null);
+      if (payload.autoSaved && payload.savedProposalId) {
+        setSavedProposalId(payload.savedProposalId);
+        setProposalAutoSaved(true);
+        if (payload.savedFolderId) {
+          onFolderChange?.(payload.savedFolderId);
+        }
+        onHistoryRefresh?.();
+      } else {
+        setSavedProposalId(null);
+        setProposalAutoSaved(false);
+      }
       if (payload.companyProfile) {
         setCompanyProfile(payload.companyProfile);
       }
@@ -90,7 +110,7 @@ export function ResultsTabs({
     } finally {
       setProposalLoading(false);
     }
-  }, [analysisMarkdown, companyProfile, result.documents]);
+  }, [analysisMarkdown, companyProfile, result.documents, savedAnalysisId, folderId, savedProposalId, onFolderChange, onHistoryRefresh]);
 
   const handleSelectCompany = (company: CompanyProfile) => {
     setSelectedCompanyId(company.id);
@@ -217,6 +237,11 @@ export function ResultsTabs({
         <EmailPanel result={editableResult} />
       ) : activeTab === "proposal" ? (
         <div className="space-y-4">
+          {proposalAutoSaved ? (
+            <p className="text-sm text-blue-800 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+              Proposta <strong>salva automaticamente</strong> no histórico.
+            </p>
+          ) : null}
           <ProposalHistoryPanel
             supabaseEnabled={supabaseEnabled}
             onLoadProposal={handleLoadProposal}

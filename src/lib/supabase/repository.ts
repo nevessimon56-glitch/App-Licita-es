@@ -697,6 +697,95 @@ export async function findCatalogMatches(
   return (data as ProductCatalogRow | null) ?? null;
 }
 
+export async function getCachedAnalysis(
+  supabase: SupabaseClient,
+  userId: string,
+  contentHash: string,
+  analysisMode: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("analysis_cache")
+    .select("analysis_markdown")
+    .eq("user_id", userId)
+    .eq("content_hash", contentHash)
+    .eq("analysis_mode", analysisMode)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  await supabase
+    .from("analysis_cache")
+    .update({ last_used_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .eq("content_hash", contentHash)
+    .eq("analysis_mode", analysisMode);
+
+  return data.analysis_markdown as string;
+}
+
+export async function setCachedAnalysis(
+  supabase: SupabaseClient,
+  userId: string,
+  input: {
+    contentHash: string;
+    analysisMode: string;
+    analysisMarkdown: string;
+    documentNames: string[];
+  }
+) {
+  const { error } = await supabase.from("analysis_cache").upsert(
+    {
+      user_id: userId,
+      content_hash: input.contentHash,
+      analysis_mode: input.analysisMode,
+      analysis_markdown: input.analysisMarkdown,
+      document_names: input.documentNames,
+      last_used_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,content_hash,analysis_mode" }
+  );
+
+  if (error) {
+    console.error("analysis_cache upsert failed:", error.message);
+  }
+}
+
+export async function logItemFieldEdit(
+  supabase: SupabaseClient,
+  userId: string,
+  input: {
+    userEmail?: string;
+    folderId?: string | null;
+    folderTitle?: string;
+    proposalId?: string | null;
+    itemNumero: string;
+    itemTitulo: string;
+    field: string;
+    oldValue: string;
+    newValue: string;
+  }
+) {
+  if (input.oldValue === input.newValue) return;
+
+  await logAdminAudit(supabase, {
+    userId,
+    userEmail: input.userEmail,
+    folderId: input.folderId,
+    folderTitle: input.folderTitle ?? "",
+    action: "item_field_edited",
+    entityType: "proposal_item",
+    entityId: input.proposalId ?? undefined,
+    summary: `Item ${input.itemNumero}: alterou ${input.field}`,
+    changes: {
+      item_numero: input.itemNumero,
+      item_titulo: input.itemTitulo,
+      field: input.field,
+      de: input.oldValue,
+      para: input.newValue,
+    },
+  });
+}
+
 export function applyCatalogToItem(
   item: ProposalItem,
   catalog: ProductCatalogRow

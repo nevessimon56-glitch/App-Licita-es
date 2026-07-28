@@ -3,7 +3,14 @@ import { analyzeDocuments } from "@/lib/analyze";
 import { extractTextFromDocument } from "@/lib/document-extract";
 import { isAcceptedFile } from "@/lib/accepted-files";
 import { validateFileCount } from "@/lib/file-limits";
-import type { UploadedDocument, AnalysisMode } from "@/lib/analysis-prompt";
+import type { UploadedDocument, AnalysisMode, AnalysisResponse } from "@/lib/analysis-prompt";
+import { hashDocumentBuffers } from "@/lib/document-hash";
+import { getOptionalSupabaseSession } from "@/lib/supabase/optional-auth";
+import {
+  getCachedAnalysis,
+  saveAnalysis,
+  setCachedAnalysis,
+} from "@/lib/supabase/repository";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -14,6 +21,34 @@ const ALLOWED_TYPES = new Set([
   "anexo",
   "outro",
 ]);
+
+function buildAnalysisResponse(
+  analysis: string,
+  documents: UploadedDocument[],
+  mode: AnalysisMode,
+  model: string,
+  extras: Partial<AnalysisResponse> = {}
+): AnalysisResponse {
+  return {
+    analysis,
+    documentSummary: documents.map((doc) => ({
+      name: doc.name,
+      type: doc.type,
+      pageCount: doc.pageCount,
+      charCount: doc.text.length,
+    })),
+    documents: documents.map((doc) => ({
+      name: doc.name,
+      type: doc.type,
+      text: doc.text,
+      pageCount: doc.pageCount,
+    })),
+    model,
+    mode,
+    generatedAt: new Date().toISOString(),
+    ...extras,
+  };
+}
 
 export async function POST(request: NextRequest) {
   const startedAt = Date.now();
@@ -39,33 +74,97 @@ export async function POST(request: NextRequest) {
     const mode: AnalysisMode =
       rawMode === "resumido" ? "resumido" : "completo";
 
-    const documents: UploadedDocument[] = await Promise.all(
-      files.map(async (file, i) => {
-        const rawType = types[i] ?? "outro";
-        const type = ALLOWED_TYPES.has(rawType)
-          ? (rawType as UploadedDocument["type"])
-          : "outro";
+    const fileBuffers: { name: string; buffer: Buffer }[] = [];
+    const documents: UploadedDocument[] = [];
 
-        if (!isAcceptedFile(file.name)) {
-          throw new Error(
-            `Arquivo "${file.name}" não é suportado. Use PDF, DOC ou DOCX.`
-          );
-        }
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const rawType = types[i] ?? "outro";
+      const type = ALLOWED_TYPES.has(rawType)
+        ? (rawType as UploadedDocument["type"])
+        : "outro";
 
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const { text, pageCount } = await extractTextFromDocument(
-          buffer,
-          file.name
+      if (!isAcceptedFile(file.name)) {
+        throw new Error(
+          `Arquivo "${file.name}" não é suportado. Use PDF, DOC ou DOCX.`
+        );
+      }
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      fileBuffers.push({ name: file.name, buffer });
+
+      const { text, pageCount } = await extractTextFromDocument(buffer, file.name);
+      documents.push({ name: file.name, type, text, pageCount });
+    }
+
+    const contentHash = hashDocumentBuffers(fileBuffers, mode);
+    const session = await getOptionalSupabaseSession();
+
+    if (session) {
+      const cachedMarkdown = await getCachedAnalysis(
+        session.supabase,
+        session.user.id,
+        contentHash,
+        mode
+      );
+
+      if (cachedMarkdown) {
+        const result = buildAnalysisResponse(
+          cachedMarkdown,
+          documents,
+          mode,
+          "cache (sem Gemini)",
+          {
+            fromCache: true,
+            autoSaved: false,
+          }
         );
 
-        return { name: file.name, type, text, pageCount };
-      })
-    );
+        console.info(
+          `[analyze:${mode}] cache hit — ${documents.length} arquivo(s) — ${((Date.now() - startedAt) / 1000).toFixed(1)}s`
+        );
 
-    const result = await analyzeDocuments(documents, mode);
+        return NextResponse.json(result);
+      }
+    }
+
+    const geminiResult = await analyzeDocuments(documents, mode);
+
+    let savedAnalysisId: string | null = null;
+    let savedFolderId: string | null = null;
+
+    if (session) {
+      try {
+        await setCachedAnalysis(session.supabase, session.user.id, {
+          contentHash,
+          analysisMode: mode,
+          analysisMarkdown: geminiResult.analysis,
+          documentNames: documents.map((doc) => doc.name),
+        });
+
+        const saved = await saveAnalysis(session.supabase, session.user.id, {
+          analysisMarkdown: geminiResult.analysis,
+          analysisMode: mode,
+          documentNames: documents.map((doc) => doc.name),
+          userEmail: session.user.email,
+        });
+        savedAnalysisId = saved.id;
+        savedFolderId = saved.folder_id;
+      } catch (saveError) {
+        console.error("auto-save analysis failed:", saveError);
+      }
+    }
+
+    const result: AnalysisResponse = {
+      ...geminiResult,
+      autoSaved: Boolean(savedAnalysisId),
+      savedAnalysisId,
+      savedFolderId,
+      fromCache: false,
+    };
 
     console.info(
-      `[analyze:${mode}] ${documents.length} arquivo(s) — ${((Date.now() - startedAt) / 1000).toFixed(1)}s — modelo ${result.model}`
+      `[analyze:${mode}] ${documents.length} arquivo(s) — ${((Date.now() - startedAt) / 1000).toFixed(1)}s — modelo ${result.model}${result.autoSaved ? " — auto-saved" : ""}`
     );
 
     return NextResponse.json(result);

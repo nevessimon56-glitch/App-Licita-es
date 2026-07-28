@@ -4,23 +4,41 @@ import type { ProposalItem } from "@/lib/proposal-types";
 import { formatCurrencyBRL } from "@/lib/proposal-document";
 import { buildMarcaModeloParts } from "@/lib/proposal-layout";
 import { PROPOSAL_SEM_INSTALACAO_SUFFIX } from "@/lib/proposal-export-styles";
-import { applyCatalogToItems } from "@/lib/history-client";
+import { applyCatalogToItems, auditItemFieldEdit } from "@/lib/history-client";
 import { Loader2, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+
+interface AuditContext {
+  folderId?: string | null;
+  folderTitle?: string;
+  proposalId?: string | null;
+}
 
 interface Props {
   itens: ProposalItem[];
   onChange: (itens: ProposalItem[]) => void;
   supabaseEnabled?: boolean;
+  auditContext?: AuditContext;
 }
+
+const AUDIT_FIELDS = ["fabricante", "marcaModelo", "valorUnitario"] as const;
+type AuditField = (typeof AUDIT_FIELDS)[number];
+
+const FIELD_LABELS: Record<AuditField, string> = {
+  fabricante: "Fabricante",
+  marcaModelo: "Marca/Modelo",
+  valorUnitario: "Valor unitário",
+};
 
 export function ProposalItemsEditor({
   itens,
   onChange,
   supabaseEnabled = false,
+  auditContext,
 }: Props) {
   const [applyingCatalog, setApplyingCatalog] = useState(false);
   const [catalogMessage, setCatalogMessage] = useState<string | null>(null);
+  const fieldSnapshot = useRef<Record<string, string>>({});
 
   const updateItem = (index: number, patch: Partial<ProposalItem>) => {
     onChange(
@@ -62,6 +80,48 @@ export function ProposalItemsEditor({
   const removeItem = (index: number) => {
     onChange(itens.filter((_, i) => i !== index));
   };
+
+  function fieldKey(index: number, field: AuditField) {
+    return `${index}-${field}`;
+  }
+
+  function readFieldValue(item: ProposalItem, field: AuditField): string {
+    if (field === "valorUnitario") {
+      return item.valorUnitario !== null ? String(item.valorUnitario) : "";
+    }
+    return item[field];
+  }
+
+  function handleAuditFocus(index: number, field: AuditField) {
+    if (!supabaseEnabled) return;
+    const item = itens[index];
+    if (!item) return;
+    fieldSnapshot.current[fieldKey(index, field)] = readFieldValue(item, field);
+  }
+
+  function handleAuditBlur(index: number, field: AuditField) {
+    if (!supabaseEnabled) return;
+    const item = itens[index];
+    if (!item) return;
+
+    const key = fieldKey(index, field);
+    const oldValue = fieldSnapshot.current[key] ?? "";
+    const newValue = readFieldValue(item, field);
+    delete fieldSnapshot.current[key];
+
+    if (oldValue === newValue) return;
+
+    void auditItemFieldEdit({
+      folderId: auditContext?.folderId,
+      folderTitle: auditContext?.folderTitle,
+      proposalId: auditContext?.proposalId,
+      itemNumero: item.numero,
+      itemTitulo: item.tituloProduto || item.descricao.slice(0, 80),
+      field: FIELD_LABELS[field],
+      oldValue,
+      newValue,
+    });
+  }
 
   async function handleApplyCatalog() {
     if (!supabaseEnabled || !itens.length) return;
@@ -237,6 +297,8 @@ export function ProposalItemsEditor({
               <input
                 value={item.fabricante}
                 onChange={(e) => updateItem(index, { fabricante: e.target.value })}
+                onFocus={() => handleAuditFocus(index, "fabricante")}
+                onBlur={() => handleAuditBlur(index, "fabricante")}
               />
             </label>
             <label className="proposal-field">
@@ -244,6 +306,8 @@ export function ProposalItemsEditor({
               <input
                 value={item.marcaModelo}
                 onChange={(e) => updateItem(index, { marcaModelo: e.target.value })}
+                onFocus={() => handleAuditFocus(index, "marcaModelo")}
+                onBlur={() => handleAuditBlur(index, "marcaModelo")}
               />
             </label>
             <label className="proposal-field">
@@ -253,6 +317,8 @@ export function ProposalItemsEditor({
                 min={0}
                 step="0.01"
                 value={item.valorUnitario ?? ""}
+                onFocus={() => handleAuditFocus(index, "valorUnitario")}
+                onBlur={() => handleAuditBlur(index, "valorUnitario")}
                 onChange={(e) =>
                   updateItem(index, {
                     valorUnitario: e.target.value ? Number(e.target.value) : null,

@@ -108,6 +108,23 @@ export async function loadProposalFromHistory(proposalId: string) {
   }>(response);
 }
 
+export async function auditItemFieldEdit(input: {
+  folderId?: string | null;
+  folderTitle?: string;
+  proposalId?: string | null;
+  itemNumero: string;
+  itemTitulo: string;
+  field: string;
+  oldValue: string;
+  newValue: string;
+}) {
+  await fetch("/api/history/audit-item", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
 export async function applyCatalogToItems(itens: ProposalItem[]) {
   const response = await fetch("/api/products/apply-catalog", {
     method: "POST",

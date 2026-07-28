@@ -374,6 +374,13 @@ export function ProposalPanel({
             itens={pkg.itens}
             onChange={(itens) => updatePackage({ itens })}
             supabaseEnabled={supabaseEnabled}
+            auditContext={{
+              folderId,
+              folderTitle: pkg.metadata.orgao
+                ? `${pkg.metadata.orgao}${pkg.metadata.numeroPregao ? ` — PE ${pkg.metadata.numeroPregao}` : ""}`
+                : undefined,
+              proposalId: savedProposalId,
+            }}
           />
         </div>
       )}

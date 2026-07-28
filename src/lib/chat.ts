@@ -25,7 +25,11 @@ function buildChatContext(analysis?: string, documents?: ChatDocument[]): string
     parts.push("=== RESUMO EXECUTIVO GERADO ===\n\n" + analysis);
   }
 
-  if (documents?.length) {
+  // Com resumo salvo, não reenvia PDFs — economia de tokens
+  const useDocuments =
+    !analysis?.trim() || analysis.trim().length < 800;
+
+  if (useDocuments && documents?.length) {
     let totalChars = parts.join("").length;
 
     for (const doc of documents) {

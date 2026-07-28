@@ -373,4 +373,10 @@ export interface AnalysisResponse {
   model: string;
   mode: AnalysisMode;
   generatedAt: string;
+  /** Análise reutilizada do cache (mesmos PDFs) — sem custo Gemini */
+  fromCache?: boolean;
+  /** Salvo automaticamente no histórico do usuário */
+  autoSaved?: boolean;
+  savedAnalysisId?: string | null;
+  savedFolderId?: string | null;
 }

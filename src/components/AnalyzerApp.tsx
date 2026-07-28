@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { ResultsTabs } from "./ResultsTabs";
+import { AutoSaveNotice } from "./AutoSaveNotice";
 import { MyFoldersPanel } from "./MyFoldersPanel";
 import { AnalysisHistoryPanel } from "./AnalysisHistoryPanel";
 import type { AnalysisMode, AnalysisResponse } from "@/lib/analysis-prompt";
@@ -144,7 +145,11 @@ export function AnalyzerApp({ showLogout = false }: { showLogout?: boolean }) {
       }
 
       setResult(data as AnalysisResponse);
-      setFolderId(null);
+      const analysis = data as AnalysisResponse;
+      setFolderId(analysis.savedFolderId ?? null);
+      if (analysis.autoSaved || analysis.fromCache) {
+        setHistoryRefreshKey((value) => value + 1);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido.");
     } finally {
@@ -396,13 +401,19 @@ export function AnalyzerApp({ showLogout = false }: { showLogout?: boolean }) {
 
         {/* Results */}
         {result ? (
-          <ResultsTabs
-            result={result}
-            folderId={folderId}
-            onFolderChange={setFolderId}
-            historyRefreshKey={historyRefreshKey}
-            onHistoryRefresh={() => setHistoryRefreshKey((value) => value + 1)}
-          />
+          <div className="space-y-4">
+            <AutoSaveNotice
+              fromCache={result.fromCache}
+              autoSaved={result.autoSaved}
+            />
+            <ResultsTabs
+              result={result}
+              folderId={folderId}
+              onFolderChange={setFolderId}
+              historyRefreshKey={historyRefreshKey}
+              onHistoryRefresh={() => setHistoryRefreshKey((value) => value + 1)}
+            />
+          </div>
         ) : null}
       </main>
 
