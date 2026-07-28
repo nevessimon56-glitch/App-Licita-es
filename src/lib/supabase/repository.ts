@@ -145,7 +145,7 @@ export async function logAdminAudit(
     changes?: Record<string, unknown>;
   }
 ) {
-  await supabase.from("admin_audit_log").insert({
+  const { error } = await supabase.from("admin_audit_log").insert({
     user_id: input.userId,
     user_email: input.userEmail ?? "",
     folder_id: input.folderId ?? null,
@@ -156,6 +156,10 @@ export async function logAdminAudit(
     summary: input.summary ?? "",
     changes: input.changes ?? {},
   });
+
+  if (error) {
+    console.error("admin_audit_log insert failed:", error.message);
+  }
 }
 
 export async function upsertFolderForUser(
