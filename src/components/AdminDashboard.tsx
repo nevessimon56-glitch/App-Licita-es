@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AdminAuditEntryCard } from "@/components/AdminAuditEntryCard";
+import { AdminEditalDetail } from "@/components/AdminEditalDetail";
 import {
-  Activity,
   Archive,
   ChevronLeft,
   ChevronRight,
+  FolderOpen,
   Loader2,
   LogOut,
   RefreshCw,
@@ -16,18 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-interface AuditEntry {
-  id: string;
-  user_email: string;
-  folder_title: string;
-  action: string;
-  summary: string;
-  created_at: string;
-  entity_type?: string | null;
-  entity_id?: string | null;
-  changes?: Record<string, unknown>;
-}
+import type { AdminEditalSummary } from "@/lib/supabase/repository";
 
 interface UserSummary {
   id: string;
@@ -56,17 +45,22 @@ interface ArchivedFolder {
   updated_at: string;
 }
 
-type View = "audit" | "users" | "archived";
+type View = "editals" | "users" | "archived";
 
-const PAGE_SIZE = 40;
+const PAGE_SIZE = 30;
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleString("pt-BR");
+}
 
 export function AdminDashboard() {
   const router = useRouter();
-  const [view, setView] = useState<View>("audit");
+  const [view, setView] = useState<View>("editals");
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [audit, setAudit] = useState<AuditEntry[]>([]);
-  const [auditTotal, setAuditTotal] = useState(0);
-  const [auditPage, setAuditPage] = useState(0);
+  const [editals, setEditals] = useState<AdminEditalSummary[]>([]);
+  const [editalsTotal, setEditalsTotal] = useState(0);
+  const [editalsPage, setEditalsPage] = useState(0);
+  const [selectedEdital, setSelectedEdital] = useState<AdminEditalSummary | null>(null);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [archived, setArchived] = useState<ArchivedFolder[]>([]);
   const [archivedTotal, setArchivedTotal] = useState(0);
@@ -120,34 +114,34 @@ export function AdminDashboard() {
     }
   }, []);
 
-  const loadAudit = useCallback(async () => {
+  const loadEditals = useCallback(async () => {
     setLoadingView(true);
     setError(null);
     try {
       const params = new URLSearchParams({
-        view: "audit",
+        view: "editals",
         limit: String(PAGE_SIZE),
-        offset: String(auditPage * PAGE_SIZE),
+        offset: String(editalsPage * PAGE_SIZE),
       });
       if (selectedUserId) params.set("userId", selectedUserId);
       if (searchQuery) params.set("search", searchQuery);
 
       const response = await fetch(`/api/admin/dashboard?${params}`);
       const data = (await response.json()) as {
-        items?: AuditEntry[];
+        items?: AdminEditalSummary[];
         total?: number;
         error?: string;
       };
 
-      if (!response.ok) throw new Error(data.error ?? "Erro ao carregar auditoria.");
-      setAudit(data.items ?? []);
-      setAuditTotal(data.total ?? 0);
+      if (!response.ok) throw new Error(data.error ?? "Erro ao carregar editais.");
+      setEditals(data.items ?? []);
+      setEditalsTotal(data.total ?? 0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar auditoria.");
+      setError(err instanceof Error ? err.message : "Erro ao carregar editais.");
     } finally {
       setLoadingView(false);
     }
-  }, [auditPage, selectedUserId, searchQuery]);
+  }, [editalsPage, selectedUserId, searchQuery]);
 
   const loadArchived = useCallback(async () => {
     setLoadingView(true);
@@ -180,19 +174,19 @@ export function AdminDashboard() {
 
   useEffect(() => {
     if (view === "users") void loadUsers();
-    if (view === "audit") void loadAudit();
+    if (view === "editals" && !selectedEdital) void loadEditals();
     if (view === "archived") void loadArchived();
-  }, [view, loadUsers, loadAudit, loadArchived]);
+  }, [view, loadUsers, loadEditals, loadArchived, selectedEdital]);
 
   useEffect(() => {
-    setAuditPage(0);
+    setEditalsPage(0);
   }, [selectedUserId, searchQuery]);
 
   async function handleRefresh() {
     setMessage(null);
     await loadStats();
     if (view === "users") await loadUsers();
-    if (view === "audit") await loadAudit();
+    if (view === "editals" && !selectedEdital) await loadEditals();
     if (view === "archived") await loadArchived();
   }
 
@@ -238,7 +232,7 @@ export function AdminDashboard() {
     setSearchQuery(searchInput.trim());
   }
 
-  const auditPageCount = Math.max(1, Math.ceil(auditTotal / PAGE_SIZE));
+  const editalsPageCount = Math.max(1, Math.ceil(editalsTotal / PAGE_SIZE));
   const archivedPageCount = Math.max(1, Math.ceil(archivedTotal / PAGE_SIZE));
 
   return (
@@ -250,7 +244,7 @@ export function AdminDashboard() {
             <div>
               <h1 className="text-xl font-bold">Painel Admin</h1>
               <p className="text-sm text-slate-300">
-                Auditoria permanente · pastas do usuário expiram em 30 dias
+                Gestão por edital · pastas do usuário expiram em 30 dias
               </p>
             </div>
           </div>
@@ -281,65 +275,69 @@ export function AdminDashboard() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-        <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          {[
-            { label: "Usuários", value: stats?.users_count },
-            { label: "Pastas ativas", value: stats?.active_folders },
-            { label: "Arquivadas", value: stats?.archived_folders },
-            { label: "Ações hoje", value: stats?.audit_today },
-            { label: "Ações total", value: stats?.audit_total },
-          ].map((card) => (
-            <div
-              key={card.label}
-              className="bg-white rounded-xl border border-slate-200 p-4"
-            >
-              <p className="text-xs text-slate-500">{card.label}</p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">
-                {loadingStats ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
-                ) : (
-                  (card.value ?? 0)
-                )}
-              </p>
-            </div>
-          ))}
-        </section>
+        {!selectedEdital ? (
+          <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            {[
+              { label: "Usuários", value: stats?.users_count },
+              { label: "Pastas ativas", value: stats?.active_folders },
+              { label: "Arquivadas", value: stats?.archived_folders },
+              { label: "Ações hoje", value: stats?.audit_today },
+              { label: "Ações total", value: stats?.audit_total },
+            ].map((card) => (
+              <div
+                key={card.label}
+                className="bg-white rounded-xl border border-slate-200 p-4"
+              >
+                <p className="text-xs text-slate-500">{card.label}</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">
+                  {loadingStats ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+                  ) : (
+                    (card.value ?? 0)
+                  )}
+                </p>
+              </div>
+            ))}
+          </section>
+        ) : null}
 
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ["audit", "Auditoria", Activity],
-              ["users", "Usuários", Users],
-              ["archived", "Arquivadas", Archive],
-            ] as const
-          ).map(([id, label, Icon]) => (
+        {!selectedEdital ? (
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ["editals", "Editais", FolderOpen],
+                ["users", "Usuários", Users],
+                ["archived", "Arquivadas", Archive],
+              ] as const
+            ).map(([id, label, Icon]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setView(id)}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${
+                  view === id
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "bg-slate-200 text-slate-700"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
             <button
-              key={id}
               type="button"
-              onClick={() => setView(id)}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${
-                view === id
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "bg-slate-200 text-slate-700"
-              }`}
+              onClick={() => void handleRefresh()}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-slate-300 bg-white"
             >
-              <Icon className="w-4 h-4" />
-              {label}
+              {loadingView || loadingStats ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              Atualizar
             </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => void handleRefresh()}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-slate-300 bg-white"
-          >
-            {loadingView || loadingStats ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4" />
-            )}
-            Atualizar
-          </button>
-        </div>
+          </div>
+        ) : null}
 
         {message ? (
           <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg p-4">
@@ -353,7 +351,17 @@ export function AdminDashboard() {
           </p>
         ) : null}
 
-        {view === "audit" ? (
+        {selectedEdital ? (
+          <AdminEditalDetail
+            edital={selectedEdital}
+            onBack={() => {
+              setSelectedEdital(null);
+              void loadEditals();
+            }}
+          />
+        ) : null}
+
+        {view === "editals" && !selectedEdital ? (
           <div className="space-y-4">
             <form
               onSubmit={handleSearchSubmit}
@@ -364,7 +372,7 @@ export function AdminDashboard() {
                 <input
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Buscar por e-mail, pasta ou resumo..."
+                  placeholder="Buscar por edital, órgão ou e-mail..."
                   className="w-full rounded-lg border border-slate-300 pl-10 pr-4 py-2 text-sm"
                 />
               </div>
@@ -396,7 +404,7 @@ export function AdminDashboard() {
                   className="text-blue-700 hover:underline inline-flex items-center gap-1"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Todos
+                  Todos os editais
                 </button>
                 <span className="text-slate-500">
                   Filtrando: <strong>{selectedUser.email}</strong>
@@ -404,29 +412,79 @@ export function AdminDashboard() {
               </div>
             ) : null}
 
-            <div className="space-y-3">
-              {audit.map((entry) => (
-                <AdminAuditEntryCard key={entry.id} entry={entry} />
+            <div className="space-y-2">
+              {editals.map((edital) => (
+                <button
+                  key={edital.folder_id}
+                  type="button"
+                  onClick={() => setSelectedEdital(edital)}
+                  className="w-full text-left bg-white rounded-xl border border-slate-200 p-4 hover:border-slate-300 hover:shadow-sm transition"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-slate-900 truncate">
+                        {edital.title}
+                      </p>
+                      <p className="text-sm text-slate-600 mt-0.5">
+                        {edital.orgao}
+                        {edital.numero_pregao ? ` · PE ${edital.numero_pregao}` : ""}
+                      </p>
+                      <p className="text-sm text-slate-500 mt-1">{edital.user_email}</p>
+                    </div>
+                    <p className="text-xs text-slate-400 shrink-0">
+                      {formatDate(edital.last_activity)}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {edital.chat_count > 0 ? (
+                      <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
+                        {edital.chat_count} chat{edital.chat_count !== 1 ? "s" : ""}
+                      </span>
+                    ) : null}
+                    {edital.proposal_count > 0 ? (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                        {edital.proposal_count} proposta
+                        {edital.proposal_count !== 1 ? "s" : ""}
+                      </span>
+                    ) : null}
+                    {edital.analysis_count > 0 ? (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                        {edital.analysis_count} análise
+                        {edital.analysis_count !== 1 ? "s" : ""}
+                      </span>
+                    ) : null}
+                    {edital.edits_count > 0 ? (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                        {edital.edits_count} alteração
+                        {edital.edits_count !== 1 ? "ões" : ""}
+                      </span>
+                    ) : null}
+                    {edital.total_actions === 0 ? (
+                      <span className="text-xs text-slate-400">Sem atividade registrada</span>
+                    ) : null}
+                  </div>
+                </button>
               ))}
 
-              {!audit.length && !loadingView ? (
+              {!editals.length && !loadingView ? (
                 <p className="text-sm text-slate-500 bg-white rounded-xl border border-slate-200 p-6">
-                  Nenhuma ação encontrada.
+                  Nenhum edital encontrado.
                 </p>
               ) : null}
             </div>
 
-            {auditTotal > PAGE_SIZE ? (
+            {editalsTotal > PAGE_SIZE ? (
               <div className="flex items-center justify-between gap-3 bg-white rounded-xl border border-slate-200 p-4">
                 <p className="text-sm text-slate-600">
-                  {auditTotal} registro(s) · página {auditPage + 1} de{" "}
-                  {auditPageCount}
+                  {editalsTotal} edital(is) · página {editalsPage + 1} de{" "}
+                  {editalsPageCount}
                 </p>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    disabled={auditPage === 0 || loadingView}
-                    onClick={() => setAuditPage((page) => Math.max(0, page - 1))}
+                    disabled={editalsPage === 0 || loadingView}
+                    onClick={() => setEditalsPage((page) => Math.max(0, page - 1))}
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border text-sm disabled:opacity-50"
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -434,8 +492,8 @@ export function AdminDashboard() {
                   </button>
                   <button
                     type="button"
-                    disabled={auditPage + 1 >= auditPageCount || loadingView}
-                    onClick={() => setAuditPage((page) => page + 1)}
+                    disabled={editalsPage + 1 >= editalsPageCount || loadingView}
+                    onClick={() => setEditalsPage((page) => page + 1)}
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border text-sm disabled:opacity-50"
                   >
                     Próxima
@@ -447,7 +505,7 @@ export function AdminDashboard() {
           </div>
         ) : null}
 
-        {view === "users" ? (
+        {view === "users" && !selectedEdital ? (
           <div className="space-y-3">
             <div className="hidden md:block bg-white rounded-2xl border border-slate-200 overflow-x-auto">
               <table className="w-full text-sm">
@@ -479,11 +537,11 @@ export function AdminDashboard() {
                           type="button"
                           onClick={() => {
                             setSelectedUserId(user.id);
-                            setView("audit");
+                            setView("editals");
                           }}
                           className="text-blue-700 hover:underline"
                         >
-                          Ver auditoria
+                          Ver editais
                         </button>
                       </td>
                     </tr>
@@ -509,11 +567,11 @@ export function AdminDashboard() {
                     type="button"
                     onClick={() => {
                       setSelectedUserId(user.id);
-                      setView("audit");
+                      setView("editals");
                     }}
                     className="mt-3 text-sm text-blue-700 hover:underline"
                   >
-                    Ver auditoria
+                    Ver editais
                   </button>
                 </div>
               ))}
@@ -527,7 +585,7 @@ export function AdminDashboard() {
           </div>
         ) : null}
 
-        {view === "archived" ? (
+        {view === "archived" && !selectedEdital ? (
           <div className="space-y-3">
             {archived.map((folder) => (
               <div
@@ -589,7 +647,7 @@ export function AdminDashboard() {
           </div>
         ) : null}
 
-        {loadingView ? (
+        {loadingView && !selectedEdital ? (
           <div className="flex justify-center py-8">
             <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
           </div>

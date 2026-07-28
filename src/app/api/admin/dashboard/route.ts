@@ -8,6 +8,7 @@ import {
   getAdminDashboardStats,
   listAdminArchivedFolders,
   listAdminAuditLog,
+  listAdminEditals,
   listAdminUsersSummary,
 } from "@/lib/supabase/repository";
 
@@ -26,10 +27,11 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const view = searchParams.get("view") ?? "audit";
+  const view = searchParams.get("view") ?? "editals";
   const userId = searchParams.get("userId") ?? undefined;
+  const folderId = searchParams.get("folderId") ?? undefined;
   const search = searchParams.get("search") ?? undefined;
-  const limit = Math.min(Number(searchParams.get("limit") ?? "50"), 100);
+  const limit = Math.min(Number(searchParams.get("limit") ?? "50"), 200);
   const offset = Math.max(Number(searchParams.get("offset") ?? "0"), 0);
 
   try {
@@ -50,10 +52,32 @@ export async function GET(request: Request) {
       return NextResponse.json(archived);
     }
 
+    if (view === "editals") {
+      const editals = await listAdminEditals(supabase, {
+        limit,
+        offset,
+        userId,
+        search,
+      });
+      return NextResponse.json(editals);
+    }
+
+    if (view === "audit") {
+      const audit = await listAdminAuditLog(supabase, {
+        limit,
+        offset,
+        userId,
+        folderId,
+        search,
+      });
+      return NextResponse.json(audit);
+    }
+
     const audit = await listAdminAuditLog(supabase, {
       limit,
       offset,
       userId,
+      folderId,
       search,
     });
     return NextResponse.json(audit);

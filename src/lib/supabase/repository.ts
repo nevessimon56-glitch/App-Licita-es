@@ -630,6 +630,7 @@ export async function listAdminAuditLog(
     limit?: number;
     offset?: number;
     userId?: string;
+    folderId?: string;
     search?: string;
   } = {}
 ) {
@@ -644,6 +645,10 @@ export async function listAdminAuditLog(
 
   if (options.userId) {
     query = query.eq("user_id", options.userId);
+  }
+
+  if (options.folderId) {
+    query = query.eq("folder_id", options.folderId);
   }
 
   const search = options.search?.trim();
@@ -663,6 +668,164 @@ export async function listAdminAuditLog(
     limit,
     offset,
   };
+}
+
+export interface AdminEditalSummary {
+  folder_id: string;
+  title: string;
+  orgao: string;
+  numero_pregao: string;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  updated_at: string;
+  expires_at: string;
+  chat_count: number;
+  proposal_count: number;
+  analysis_count: number;
+  edits_count: number;
+  total_actions: number;
+  last_activity: string;
+}
+
+const PROPOSAL_ACTIONS = new Set([
+  "proposal_generated",
+  "proposal_saved",
+  "proposal_updated",
+  "catalog_applied",
+]);
+
+const ANALYSIS_ACTIONS = new Set([
+  "analysis_saved",
+  "analysis_edited",
+  "analysis_section_edited",
+]);
+
+const EDIT_ACTIONS = new Set([
+  "analysis_edited",
+  "analysis_section_edited",
+  "item_field_edited",
+  "proposal_item_added",
+  "proposal_item_removed",
+]);
+
+function countAuditActions(
+  rows: Array<{ folder_id: string | null; action: string; created_at: string }>,
+  folderId: string
+) {
+  const filtered = rows.filter((row) => row.folder_id === folderId);
+  let chat = 0;
+  let proposal = 0;
+  let analysis = 0;
+  let edits = 0;
+  let lastActivity = "";
+
+  for (const row of filtered) {
+    if (row.action === "chat_message") chat += 1;
+    if (PROPOSAL_ACTIONS.has(row.action)) proposal += 1;
+    if (ANALYSIS_ACTIONS.has(row.action)) analysis += 1;
+    if (EDIT_ACTIONS.has(row.action)) edits += 1;
+    if (!lastActivity || row.created_at > lastActivity) {
+      lastActivity = row.created_at;
+    }
+  }
+
+  return {
+    chat_count: chat,
+    proposal_count: proposal,
+    analysis_count: analysis,
+    edits_count: edits,
+    total_actions: filtered.length,
+    last_activity: lastActivity,
+  };
+}
+
+export async function listAdminEditals(
+  supabase: SupabaseClient,
+  options: {
+    limit?: number;
+    offset?: number;
+    userId?: string;
+    search?: string;
+  } = {}
+) {
+  const limit = options.limit ?? 50;
+  const offset = options.offset ?? 0;
+
+  let folderQuery = supabase
+    .from("user_folders")
+    .select("id, title, orgao, numero_pregao, user_id, updated_at, expires_at", {
+      count: "exact",
+    })
+    .order("updated_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (options.userId) {
+    folderQuery = folderQuery.eq("user_id", options.userId);
+  }
+
+  const search = options.search?.trim();
+  if (search) {
+    const term = `%${search.replace(/[%_,]/g, "")}%`;
+    const { data: matchingProfiles } = await supabase
+      .from("profiles")
+      .select("id")
+      .or(`email.ilike.${term},full_name.ilike.${term}`);
+
+    const matchingUserIds = (matchingProfiles ?? []).map((profile) => profile.id);
+
+    if (matchingUserIds.length > 0) {
+      folderQuery = folderQuery.or(
+        `title.ilike.${term},orgao.ilike.${term},numero_pregao.ilike.${term},user_id.in.(${matchingUserIds.join(",")})`
+      );
+    } else {
+      folderQuery = folderQuery.or(
+        `title.ilike.${term},orgao.ilike.${term},numero_pregao.ilike.${term}`
+      );
+    }
+  }
+
+  const { data: folders, error, count } = await folderQuery;
+  if (error) throw new Error(error.message);
+  if (!folders?.length) {
+    return { items: [] as AdminEditalSummary[], total: count ?? 0, limit, offset };
+  }
+
+  const userIds = [...new Set(folders.map((folder) => folder.user_id))];
+  const folderIds = folders.map((folder) => folder.id);
+
+  const [{ data: profiles }, { data: audits }] = await Promise.all([
+    supabase.from("profiles").select("id, email, full_name").in("id", userIds),
+    supabase
+      .from("admin_audit_log")
+      .select("folder_id, action, created_at")
+      .in("folder_id", folderIds),
+  ]);
+
+  const profileMap = new Map(
+    (profiles ?? []).map((profile) => [profile.id, profile])
+  );
+
+  const items: AdminEditalSummary[] = folders.map((folder) => {
+    const profile = profileMap.get(folder.user_id);
+    const counts = countAuditActions(audits ?? [], folder.id);
+
+    return {
+      folder_id: folder.id,
+      title: folder.title,
+      orgao: folder.orgao ?? "",
+      numero_pregao: folder.numero_pregao ?? "",
+      user_id: folder.user_id,
+      user_email: profile?.email ?? "",
+      user_name: profile?.full_name ?? "",
+      updated_at: folder.updated_at,
+      expires_at: folder.expires_at,
+      ...counts,
+      last_activity: counts.last_activity || folder.updated_at,
+    };
+  });
+
+  return { items, total: count ?? items.length, limit, offset };
 }
 
 export interface AdminDashboardStats {
