@@ -5,6 +5,7 @@ import { formatCurrencyBRL } from "@/lib/proposal-document";
 import { buildMarcaModeloParts } from "@/lib/proposal-layout";
 import { PROPOSAL_SEM_INSTALACAO_SUFFIX } from "@/lib/proposal-export-styles";
 import { applyCatalogToItems, auditItemFieldEdit } from "@/lib/history-client";
+import { ProductCatalogPicker } from "@/components/ProductCatalogPicker";
 import { Loader2, Sparkles } from "lucide-react";
 import { useRef, useState } from "react";
 
@@ -21,8 +22,7 @@ interface Props {
   auditContext?: AuditContext;
 }
 
-const AUDIT_FIELDS = ["fabricante", "marcaModelo", "valorUnitario"] as const;
-type AuditField = (typeof AUDIT_FIELDS)[number];
+type AuditField = "fabricante" | "marcaModelo" | "valorUnitario";
 
 const FIELD_LABELS: Record<AuditField, string> = {
   fabricante: "Fabricante",
@@ -335,6 +335,13 @@ export function ProposalItemsEditor({
               />
             </label>
           </div>
+
+          {supabaseEnabled ? (
+            <ProductCatalogPicker
+              item={item}
+              onApply={(patch) => updateItem(index, patch)}
+            />
+          ) : null}
 
           <label className="inline-flex items-center gap-2 text-sm text-slate-700">
             <input

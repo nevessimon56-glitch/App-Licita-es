@@ -18,6 +18,9 @@ Execute **na ordem**:
 
 1. `supabase/migrations/001_initial_schema.sql`
 2. `supabase/migrations/002_folders_admin_audit.sql`
+3. `supabase/migrations/003_fix_audit_log_rls.sql`
+4. `supabase/migrations/004_analysis_cache.sql`
+5. `supabase/migrations/005_product_price_history.sql` — histórico de preços e média por marca/modelo
 
 ## 3. Autenticação de usuários
 
@@ -45,6 +48,7 @@ Com Supabase configurado, o login passa a ser **e-mail/senha por usuário** (nã
 2. Analise um edital → **Salvar no histórico**
 3. Gere proposta → **Salvar no histórico**
 4. Em **Minhas licitações**, veja a pasta criada (expira em 30 dias)
+5. Na proposta, use **Catálogo inteligente** por item: escolha marca → produto → **Usar média** ou **Usar último**
 
 ### Admin
 1. Acesse `/admin/login` com `ADMIN_PASSWORD`

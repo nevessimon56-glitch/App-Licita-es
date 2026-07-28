@@ -366,6 +366,12 @@ export async function saveProposal(
 
     if (error) throw new Error(error.message);
     await syncProductsFromProposal(supabase, userId, pkg.itens);
+    await recordPriceHistoryFromItems(supabase, userId, pkg.itens, {
+      orgao: pkg.metadata.orgao,
+      numeroPregao: buildPregaoLine(pkg.metadata),
+      proposalId: data.id,
+      folderId: folder.id,
+    });
     await logUserActivity(supabase, userId, "proposal_updated", "proposal", data.id);
 
     await logAdminAudit(supabase, {
@@ -396,6 +402,12 @@ export async function saveProposal(
   if (error) throw new Error(error.message);
 
   await syncProductsFromProposal(supabase, userId, pkg.itens);
+  await recordPriceHistoryFromItems(supabase, userId, pkg.itens, {
+    orgao: pkg.metadata.orgao,
+    numeroPregao: buildPregaoLine(pkg.metadata),
+    proposalId: data.id,
+    folderId: folder.id,
+  });
   await logUserActivity(supabase, userId, "proposal_saved", "proposal", data.id);
 
   await logAdminAudit(supabase, {
@@ -784,6 +796,201 @@ export async function logItemFieldEdit(
       para: input.newValue,
     },
   });
+}
+
+export interface BrandProductSummary {
+  titulo_produto: string;
+  marca_modelo: string;
+  codigo: string;
+  unidade: string;
+  sample_count: number;
+  avg_price: number | null;
+  last_price: number | null;
+  last_orgao: string | null;
+}
+
+export interface ProductPriceStats {
+  sample_count: number;
+  avg_price: number | null;
+  min_price: number | null;
+  max_price: number | null;
+  last_price: number | null;
+  last_orgao: string | null;
+  last_pregao: string | null;
+  last_used_at: string | null;
+}
+
+export async function recordPriceHistoryFromItems(
+  supabase: SupabaseClient,
+  userId: string,
+  itens: ProposalItem[],
+  meta: {
+    orgao: string;
+    numeroPregao: string;
+    proposalId?: string;
+    folderId?: string | null;
+  }
+) {
+  const rows = itens
+    .filter(
+      (item) =>
+        item.marcaModelo.trim() &&
+        item.valorUnitario !== null &&
+        Number.isFinite(item.valorUnitario) &&
+        item.valorUnitario >= 0
+    )
+    .map((item) => ({
+      user_id: userId,
+      codigo: item.codigo.trim(),
+      titulo_produto: item.tituloProduto || item.descricao.slice(0, 120),
+      fabricante: item.fabricante.trim(),
+      marca_modelo: item.marcaModelo.trim(),
+      unidade: item.unidade || "UND",
+      valor_unitario: item.valorUnitario,
+      orgao: meta.orgao,
+      numero_pregao: meta.numeroPregao,
+      proposal_id: meta.proposalId ?? null,
+      folder_id: meta.folderId ?? null,
+    }));
+
+  if (!rows.length) return;
+
+  const { error } = await supabase.from("product_price_history").insert(rows);
+  if (error) {
+    console.error("product_price_history insert failed:", error.message);
+  }
+}
+
+export async function listUserBrands(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<string[]> {
+  const [{ data: catalog }, { data: history }] = await Promise.all([
+    supabase
+      .from("product_catalog")
+      .select("fabricante")
+      .eq("user_id", userId)
+      .not("fabricante", "is", null),
+    supabase
+      .from("product_price_history")
+      .select("fabricante")
+      .eq("user_id", userId)
+      .not("fabricante", "is", null),
+  ]);
+
+  const brands = new Set<string>();
+  for (const row of [...(catalog ?? []), ...(history ?? [])]) {
+    const value = row.fabricante?.trim();
+    if (value) brands.add(value);
+  }
+
+  return Array.from(brands).sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+export async function listProductsByBrand(
+  supabase: SupabaseClient,
+  userId: string,
+  fabricante: string
+): Promise<BrandProductSummary[]> {
+  const brand = fabricante.trim();
+  if (!brand) return [];
+
+  const [{ data: history }, { data: catalog }] = await Promise.all([
+    supabase
+      .from("product_price_history")
+      .select(
+        "titulo_produto, marca_modelo, codigo, unidade, valor_unitario, orgao, created_at"
+      )
+      .eq("user_id", userId)
+      .ilike("fabricante", brand)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("product_catalog")
+      .select(
+        "titulo_produto, marca_modelo, codigo, unidade, valor_unitario_referencia, uso_count"
+      )
+      .eq("user_id", userId)
+      .ilike("fabricante", brand),
+  ]);
+
+  const map = new Map<string, BrandProductSummary>();
+
+  for (const row of history ?? []) {
+    const marca = row.marca_modelo?.trim();
+    if (!marca) continue;
+    const key = `${marca}::${row.titulo_produto}`;
+    const existing = map.get(key);
+    const price = Number(row.valor_unitario);
+
+    if (!existing) {
+      map.set(key, {
+        titulo_produto: row.titulo_produto,
+        marca_modelo: marca,
+        codigo: row.codigo ?? "",
+        unidade: row.unidade ?? "UND",
+        sample_count: 1,
+        avg_price: price,
+        last_price: price,
+        last_orgao: row.orgao ?? null,
+      });
+      continue;
+    }
+
+    existing.sample_count += 1;
+    const total = (existing.avg_price ?? 0) * (existing.sample_count - 1) + price;
+    existing.avg_price = Math.round((total / existing.sample_count) * 100) / 100;
+  }
+
+  for (const row of catalog ?? []) {
+    const marca = row.marca_modelo?.trim();
+    if (!marca) continue;
+    const key = `${marca}::${row.titulo_produto}`;
+    if (map.has(key)) continue;
+
+    map.set(key, {
+      titulo_produto: row.titulo_produto,
+      marca_modelo: marca,
+      codigo: row.codigo ?? "",
+      unidade: row.unidade ?? "UND",
+      sample_count: row.uso_count ?? 0,
+      avg_price: row.valor_unitario_referencia,
+      last_price: row.valor_unitario_referencia,
+      last_orgao: null,
+    });
+  }
+
+  return Array.from(map.values()).sort(
+    (a, b) => b.sample_count - a.sample_count
+  );
+}
+
+export async function getProductPriceStats(
+  supabase: SupabaseClient,
+  userId: string,
+  fabricante: string,
+  marcaModelo: string
+): Promise<ProductPriceStats | null> {
+  const { data, error } = await supabase.rpc("get_product_price_stats", {
+    p_user_id: userId,
+    p_fabricante: fabricante.trim(),
+    p_marca_modelo: marcaModelo.trim(),
+  });
+
+  if (error) throw new Error(error.message);
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || !row.sample_count) return null;
+
+  return {
+    sample_count: Number(row.sample_count),
+    avg_price: row.avg_price !== null ? Number(row.avg_price) : null,
+    min_price: row.min_price !== null ? Number(row.min_price) : null,
+    max_price: row.max_price !== null ? Number(row.max_price) : null,
+    last_price: row.last_price !== null ? Number(row.last_price) : null,
+    last_orgao: row.last_orgao ?? null,
+    last_pregao: row.last_pregao ?? null,
+    last_used_at: row.last_used_at ?? null,
+  };
 }
 
 export function applyCatalogToItem(
