@@ -15,9 +15,17 @@ const SUGGESTED_QUESTIONS = [
 
 interface Props {
   result: AnalysisResponse;
+  folderId?: string | null;
+  folderTitle?: string;
+  analysisId?: string | null;
 }
 
-export function ChatPanel({ result }: Props) {
+export function ChatPanel({
+  result,
+  folderId = null,
+  folderTitle,
+  analysisId = null,
+}: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -48,6 +56,9 @@ export function ChatPanel({ result }: Props) {
           messages: nextMessages,
           analysis: result.analysis,
           documents: result.documents,
+          folderId,
+          folderTitle,
+          analysisId,
         }),
       });
 

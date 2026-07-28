@@ -135,7 +135,7 @@ export function ResultsTabs({
     } finally {
       setProposalLoading(false);
     }
-  }, [analysisMarkdown, companyProfile, result.documents, savedAnalysisId, folderId, savedProposalId, onFolderChange, onHistoryRefresh]);
+  }, [analysisMarkdown, companyProfile, result.documents, savedAnalysisId, folderId, savedProposalId, onFolderChange, onHistoryRefresh, supabaseEnabled]);
 
   const handleSelectCompany = (company: CompanyProfile) => {
     setSelectedCompanyId(company.id);
@@ -297,7 +297,11 @@ export function ResultsTabs({
           />
         </div>
       ) : (
-        <ChatPanel result={editableResult} />
+        <ChatPanel
+          result={editableResult}
+          folderId={folderId}
+          analysisId={savedAnalysisId}
+        />
       )}
     </div>
   );

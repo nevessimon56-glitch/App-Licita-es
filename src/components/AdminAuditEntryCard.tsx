@@ -32,6 +32,7 @@ const ACTION_LABELS: Record<string, string> = {
   proposal_item_removed: "Item removido",
   item_field_edited: "Campo do item editado",
   catalog_applied: "Catálogo aplicado",
+  chat_message: "Mensagem no chat",
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -70,6 +71,13 @@ const FIELD_LABELS: Record<string, string> = {
   fabricante: "Fabricante",
   marca_modelo: "Marca/Modelo",
   valor_unitario: "Valor unitário",
+  pergunta: "Pergunta do usuário",
+  pergunta_preview: "Pergunta",
+  resposta: "Resposta da IA",
+  resposta_preview: "Resposta",
+  modelo: "Modelo IA",
+  mensagem_numero: "Mensagem nº",
+  total_mensagens_conversa: "Total na conversa",
 };
 
 interface Props {
@@ -97,6 +105,8 @@ export function AdminAuditEntryCard({ entry }: Props) {
       key !== "grand_total" &&
       key !== "old_preview" &&
       key !== "new_preview" &&
+      key !== "pergunta" &&
+      key !== "resposta" &&
       value !== "" &&
       value !== null &&
       value !== undefined &&
@@ -109,6 +119,7 @@ export function AdminAuditEntryCard({ entry }: Props) {
     documentos.length > 0 ||
     secoesAlteradas.length > 0 ||
     entry.action === "item_field_edited" ||
+    entry.action === "chat_message" ||
     Boolean(changes.old_preview && changes.new_preview);
 
   return (
@@ -143,6 +154,12 @@ export function AdminAuditEntryCard({ entry }: Props) {
           changes.secao ? (
             <p className="text-xs text-amber-700 mt-2">
               Seção: <strong>{String(changes.secao)}</strong>
+            </p>
+          ) : null}
+
+          {!expanded && entry.action === "chat_message" && changes.pergunta ? (
+            <p className="text-xs text-slate-600 mt-2 line-clamp-2">
+              <strong>Pergunta:</strong> {String(changes.pergunta)}
             </p>
           ) : null}
 
@@ -261,6 +278,26 @@ export function AdminAuditEntryCard({ entry }: Props) {
                   </div>
                 </div>
               ))}
+            </div>
+          ) : null}
+
+          {entry.action === "chat_message" ? (
+            <div className="space-y-3 text-sm">
+              <div>
+                <p className="text-xs font-medium text-blue-800 mb-1">Pergunta do usuário</p>
+                <pre className="whitespace-pre-wrap bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-slate-800 max-h-48 overflow-auto">
+                  {String(changes.pergunta ?? changes.pergunta_preview ?? "—")}
+                </pre>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-700 mb-1">
+                  Resposta da IA
+                  {changes.modelo ? ` · ${String(changes.modelo)}` : ""}
+                </p>
+                <pre className="whitespace-pre-wrap bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-800 max-h-64 overflow-auto">
+                  {String(changes.resposta ?? changes.resposta_preview ?? "—")}
+                </pre>
+              </div>
             </div>
           ) : null}
 
