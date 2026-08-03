@@ -25,7 +25,7 @@ export function getGeminiApiKey(): string {
   const key = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
   if (!key) {
     throw new Error(
-      "GEMINI_API_KEY não configurada. Obtenha em https://aistudio.google.com/apikey e defina na Vercel ou no .env.local"
+      "GEMINI_API_KEY não configurada. Obtenha em https://aistudio.google.com/apikey e defina na Render ou no .env.local"
     );
   }
   return key;
@@ -72,7 +72,7 @@ export function parseGeminiError(error: unknown): never {
   }
   if (isModelUnavailableError(message)) {
     throw new Error(
-      `Modelo Gemini indisponível. Atualize GEMINI_ANALYSIS_MODEL ou GEMINI_CHAT_MODEL na Vercel.`
+      `Modelo Gemini indisponível (${getAnalysisModel()} / ${getChatModel()}). Na Render, defina GEMINI_ANALYSIS_MODEL=gemini-2.5-flash e GEMINI_CHAT_MODEL=gemini-2.5-flash.`
     );
   }
 
