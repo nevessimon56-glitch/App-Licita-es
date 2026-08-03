@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 /** Modelos para análise — Flash primeiro (qualidade), Lite como fallback */
 export const ANALYSIS_MODELS = [
@@ -28,7 +28,7 @@ export function getGeminiApiKey(): string {
       "GEMINI_API_KEY não configurada. Obtenha em https://aistudio.google.com/apikey e defina na Render ou no .env.local"
     );
   }
-  return key;
+  return key.trim();
 }
 
 export function getAnalysisModel(): string {
@@ -47,6 +47,27 @@ export function getChatModel(): string {
   );
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return String(error);
+}
+
+function isAuthError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    message.includes("401") ||
+    message.includes("403") ||
+    lower.includes("invalid_api_key") ||
+    lower.includes("unauthenticated") ||
+    lower.includes("api key") ||
+    lower.includes("access_token_type_unsupported") ||
+    lower.includes("authentication")
+  );
+}
+
 function isModelUnavailableError(message: string): boolean {
   const lower = message.toLowerCase();
   return (
@@ -58,16 +79,16 @@ function isModelUnavailableError(message: string): boolean {
 }
 
 export function parseGeminiError(error: unknown): never {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = getErrorMessage(error);
 
   if (message.includes("429") || message.toLowerCase().includes("quota")) {
     throw new Error(
       "Limite de uso da API Gemini atingido. Verifique seu plano em https://aistudio.google.com"
     );
   }
-  if (message.includes("403") || message.toLowerCase().includes("api key")) {
+  if (isAuthError(message)) {
     throw new Error(
-      "Chave GEMINI_API_KEY inválida ou sem permissão. Verifique em https://aistudio.google.com/apikey"
+      "Chave GEMINI_API_KEY inválida ou sem permissão. Verifique em https://aistudio.google.com/apikey (chaves novas começam com AQ.)."
     );
   }
   if (isModelUnavailableError(message)) {
@@ -89,11 +110,15 @@ interface GenerateOptions {
   responseMimeType?: string;
 }
 
+function createGeminiClient(): GoogleGenAI {
+  return new GoogleGenAI({ apiKey: getGeminiApiKey() });
+}
+
 export async function generateWithGemini(options: GenerateOptions): Promise<{
   text: string;
   model: string;
 }> {
-  const apiKey = getGeminiApiKey();
+  const ai = createGeminiClient();
   const preferred = options.models?.[0] ?? getAnalysisModel();
   const fallbackList = options.models ?? ANALYSIS_MODELS;
   const modelsToTry = [
@@ -101,41 +126,49 @@ export async function generateWithGemini(options: GenerateOptions): Promise<{
     ...fallbackList.filter((m) => m !== preferred),
   ];
 
+  const config = {
+    systemInstruction: options.systemInstruction,
+    temperature: options.temperature ?? 0.2,
+    ...(options.maxOutputTokens
+      ? { maxOutputTokens: options.maxOutputTokens }
+      : {}),
+    ...(options.responseMimeType
+      ? { responseMimeType: options.responseMimeType }
+      : {}),
+  };
+
   let lastError: unknown;
 
   for (const modelName of modelsToTry) {
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        systemInstruction: options.systemInstruction,
-        generationConfig: {
-          temperature: options.temperature ?? 0.2,
-          ...(options.maxOutputTokens
-            ? { maxOutputTokens: options.maxOutputTokens }
-            : {}),
-          ...(options.responseMimeType
-            ? { responseMimeType: options.responseMimeType }
-            : {}),
-        },
-      });
+      let text = "";
 
-      let result;
       if (options.history?.length) {
-        const chat = model.startChat({ history: options.history });
-        result = await chat.sendMessage(options.userMessage);
+        const chat = ai.chats.create({
+          model: modelName,
+          config,
+          history: options.history,
+        });
+        const response = await chat.sendMessage({
+          message: options.userMessage,
+        });
+        text = response.text ?? "";
       } else {
-        result = await model.generateContent(options.userMessage);
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: options.userMessage,
+          config,
+        });
+        text = response.text ?? "";
       }
 
-      const text = result.response.text();
-      if (!text?.trim()) {
+      if (!text.trim()) {
         throw new Error("A IA não retornou conteúdo.");
       }
 
       return { text, model: modelName };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       if (isModelUnavailableError(message)) {
         lastError = error;
         console.warn(`Modelo ${modelName} indisponível, tentando próximo...`);
