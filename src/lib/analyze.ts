@@ -148,7 +148,7 @@ ${
 }`,
       temperature: 0.1,
       maxOutputTokens: retryMaxTokens,
-      models: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
+      models: ["gemini-2.5-flash-lite", "gemini-2.5-flash"],
     });
 
     if (!isAnalysisIncomplete(retry.text, mode) || retry.text.length > analysis.length) {

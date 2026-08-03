@@ -1,16 +1,16 @@
 import { ApiError, GoogleGenAI } from "@google/genai";
 
-/** Modelos para análise — Flash primeiro (qualidade), Lite como fallback */
+/** Modelos para análise — Lite primeiro para economizar quota e RPM */
 export const ANALYSIS_MODELS = [
-  "gemini-2.5-flash",
   "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
   "gemini-2.0-flash",
 ] as const;
 
 /** Modelos para chat */
 export const CHAT_MODELS = [
-  "gemini-2.5-flash",
   "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
   "gemini-2.0-flash",
 ] as const;
 
@@ -20,9 +20,10 @@ export const GEMINI_MODELS = [
   "gemini-3-flash-preview",
 ] as const;
 
-const DEFAULT_ANALYSIS_MODEL = "gemini-2.5-flash";
-const DEFAULT_CHAT_MODEL = "gemini-2.5-flash";
+const DEFAULT_ANALYSIS_MODEL = "gemini-2.5-flash-lite";
+const DEFAULT_CHAT_MODEL = "gemini-2.5-flash-lite";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const RATE_LIMIT_DELAYS_MS = [8_000, 20_000, 45_000];
 
 export function getGeminiApiKey(): string {
   const key = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
@@ -53,6 +54,10 @@ export function getChatModel(): string {
 interface GeminiErrorDetails {
   message: string;
   status?: number;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function getErrorDetails(error: unknown): GeminiErrorDetails {
@@ -109,17 +114,42 @@ function isModelUnavailableError(details: GeminiErrorDetails): boolean {
   );
 }
 
-function isQuotaError(details: GeminiErrorDetails): boolean {
+function isRateLimitError(details: GeminiErrorDetails): boolean {
   const lower = details.message.toLowerCase();
-  return details.status === 429 || lower.includes("quota") || lower.includes("rate limit");
+  return (
+    details.status === 429 ||
+    lower.includes("rate limit") ||
+    lower.includes("too many requests") ||
+    lower.includes("resource_exhausted") ||
+    lower.includes("resource exhausted") ||
+    lower.includes("per minute") ||
+    lower.includes("rpm")
+  );
+}
+
+function isQuotaExhaustedError(details: GeminiErrorDetails): boolean {
+  const lower = details.message.toLowerCase();
+  return (
+    lower.includes("quota") &&
+    !isRateLimitError(details) &&
+    (lower.includes("exceeded") ||
+      lower.includes("billing") ||
+      lower.includes("daily") ||
+      lower.includes("monthly"))
+  );
 }
 
 export function parseGeminiError(error: unknown): never {
   const details = getErrorDetails(error);
 
-  if (isQuotaError(details)) {
+  if (isRateLimitError(details)) {
     throw new Error(
-      "Limite de uso da API Gemini atingido. Verifique seu plano em https://aistudio.google.com"
+      "Muitas requisições em pouco tempo na API Gemini. Aguarde 1–2 minutos e tente de novo. No plano gratuito o limite por minuto é baixo — uma análise grande pode precisar de algumas tentativas."
+    );
+  }
+  if (isQuotaExhaustedError(details)) {
+    throw new Error(
+      `Cota diária/mensal da API Gemini esgotada. Verifique em https://aistudio.google.com — detalhe: ${details.message}`
     );
   }
   if (isAuthError(details)) {
@@ -148,6 +178,10 @@ interface GenerateOptions {
 
 function createGeminiClient(): GoogleGenAI {
   return new GoogleGenAI({ apiKey: getGeminiApiKey() });
+}
+
+function usesAuthKey(): boolean {
+  return getGeminiApiKey().startsWith("AQ.");
 }
 
 function buildContents(options: GenerateOptions) {
@@ -259,17 +293,43 @@ async function generateWithGeminiRest(
   return text;
 }
 
+async function runWithRateLimitRetry<T>(
+  label: string,
+  run: () => Promise<T>
+): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= RATE_LIMIT_DELAYS_MS.length; attempt++) {
+    try {
+      return await run();
+    } catch (error) {
+      lastError = error;
+      const details = getErrorDetails(error);
+      if (!isRateLimitError(details) || attempt >= RATE_LIMIT_DELAYS_MS.length) {
+        throw error;
+      }
+
+      const delay = RATE_LIMIT_DELAYS_MS[attempt];
+      console.warn(
+        `[gemini] ${label} rate limit (tentativa ${attempt + 1}). Aguardando ${delay / 1000}s...`
+      );
+      await sleep(delay);
+    }
+  }
+
+  throw lastError;
+}
+
 export async function testGeminiConnection(): Promise<{
   ok: boolean;
   model?: string;
-  transport?: "sdk" | "rest";
   error?: string;
 }> {
   try {
     const { model } = await generateWithGemini({
       systemInstruction: "Responda apenas OK.",
       userMessage: "ping",
-      models: ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"],
+      models: ["gemini-2.5-flash-lite", "gemini-2.5-flash"],
       maxOutputTokens: 16,
       temperature: 0,
     });
@@ -294,28 +354,45 @@ export async function generateWithGemini(options: GenerateOptions): Promise<{
     ...fallbackList.filter((m) => m !== preferred),
   ];
 
+  const transports: Array<{
+    transport: "sdk" | "rest";
+    run: (modelName: string) => Promise<string>;
+  }> = usesAuthKey()
+    ? [{ transport: "rest", run: (model) => generateWithGeminiRest(model, options) }]
+    : [
+        {
+          transport: "sdk",
+          run: (model) => generateWithGeminiSdk(ai, model, options),
+        },
+        {
+          transport: "rest",
+          run: (model) => generateWithGeminiRest(model, options),
+        },
+      ];
+
   let lastError: unknown;
 
   for (const modelName of modelsToTry) {
-    const attempts: Array<{
-      transport: "sdk" | "rest";
-      run: () => Promise<string>;
-    }> = [
-      { transport: "sdk", run: () => generateWithGeminiSdk(ai, modelName, options) },
-      { transport: "rest", run: () => generateWithGeminiRest(modelName, options) },
-    ];
-
-    for (const attempt of attempts) {
+    for (const attempt of transports) {
       try {
-        const text = await attempt.run();
+        const text = await runWithRateLimitRetry(
+          `${modelName}/${attempt.transport}`,
+          () => attempt.run(modelName)
+        );
+
         if (!text.trim()) {
           throw new Error("A IA não retornou conteúdo.");
         }
+
         return { text, model: modelName };
       } catch (error) {
         const details = getErrorDetails(error);
-        if (isAuthError(details) || isQuotaError(details)) {
+        if (isAuthError(details)) {
           parseGeminiError(error);
+        }
+        if (isRateLimitError(details) || isQuotaExhaustedError(details)) {
+          lastError = error;
+          break;
         }
         if (isModelUnavailableError(details)) {
           lastError = error;
