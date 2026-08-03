@@ -18,6 +18,8 @@ export async function GET(request: Request) {
   let geminiReachable: boolean | null = null;
   let geminiModel: string | undefined;
   let geminiError: string | undefined;
+  let geminiGoogleError: unknown;
+  let geminiHttpStatus: number | undefined;
   let geminiKeyType: "auth" | "standard" | "missing" = "missing";
 
   if (checks.gemini) {
@@ -28,6 +30,8 @@ export async function GET(request: Request) {
       geminiReachable = geminiTest.ok;
       geminiModel = geminiTest.model;
       geminiError = geminiTest.error;
+      geminiGoogleError = geminiTest.googleError;
+      geminiHttpStatus = geminiTest.status;
     }
   }
 
@@ -55,6 +59,8 @@ export async function GET(request: Request) {
         geminiModel,
         geminiKeyType,
         geminiError,
+        geminiGoogleError,
+        geminiHttpStatus,
         supabaseReachable,
       },
       timestamp: new Date().toISOString(),

@@ -320,26 +320,93 @@ async function runWithRateLimitRetry<T>(
   throw lastError;
 }
 
+export async function probeGeminiApi(model = "gemini-2.5-flash-lite"): Promise<{
+  ok: boolean;
+  model: string;
+  status?: number;
+  googleError?: unknown;
+  text?: string;
+}> {
+  const apiKey = getGeminiApiKey();
+
+  try {
+    const response = await fetch(
+      `${GEMINI_API_BASE}/models/${model}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: "Responda apenas: OK" }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 8,
+          },
+        }),
+      }
+    );
+
+    const payload = (await response.json()) as {
+      error?: { message?: string; code?: number; status?: string; details?: unknown[] };
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> };
+      }>;
+    };
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        model,
+        status: response.status,
+        googleError: payload.error ?? payload,
+      };
+    }
+
+    return {
+      ok: true,
+      model,
+      text: payload.candidates?.[0]?.content?.parts?.[0]?.text,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      model,
+      googleError: getErrorDetails(error).message,
+    };
+  }
+}
+
 export async function testGeminiConnection(): Promise<{
   ok: boolean;
   model?: string;
   error?: string;
+  googleError?: unknown;
+  status?: number;
 }> {
-  try {
-    const { model } = await generateWithGemini({
-      systemInstruction: "Responda apenas OK.",
-      userMessage: "ping",
-      models: ["gemini-2.5-flash-lite", "gemini-2.5-flash"],
-      maxOutputTokens: 16,
-      temperature: 0,
-    });
-    return { ok: true, model };
-  } catch (error) {
-    return {
-      ok: false,
-      error: getErrorDetails(error).message,
-    };
+  const probe = await probeGeminiApi("gemini-2.5-flash-lite");
+  if (probe.ok) {
+    return { ok: true, model: probe.model };
   }
+
+  return {
+    ok: false,
+    model: probe.model,
+    error:
+      typeof probe.googleError === "object" &&
+      probe.googleError !== null &&
+      "message" in probe.googleError
+        ? String((probe.googleError as { message: unknown }).message)
+        : String(probe.googleError ?? "Falha ao conectar com Gemini."),
+    googleError: probe.googleError,
+    status: probe.status,
+  };
 }
 
 export async function generateWithGemini(options: GenerateOptions): Promise<{
