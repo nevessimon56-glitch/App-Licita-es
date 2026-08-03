@@ -1,9 +1,12 @@
 import { isSupabaseEnabled } from "@/lib/supabase/config";
 import { createSupabaseServiceClient, isSupabaseServiceRoleConfigured } from "@/lib/supabase/admin";
+import { getGeminiApiKey, testGeminiConnection } from "@/lib/gemini";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const testGemini = new URL(request.url).searchParams.get("testGemini") === "1";
+
   const checks = {
     gemini: Boolean(process.env.GEMINI_API_KEY?.trim()),
     supabase: isSupabaseEnabled(),
@@ -12,6 +15,21 @@ export async function GET() {
   };
 
   let supabaseReachable: boolean | null = null;
+  let geminiReachable: boolean | null = null;
+  let geminiModel: string | undefined;
+  let geminiError: string | undefined;
+  let geminiKeyType: "auth" | "standard" | "missing" = "missing";
+
+  if (checks.gemini) {
+    const key = getGeminiApiKey();
+    geminiKeyType = key.startsWith("AQ.") ? "auth" : "standard";
+    if (testGemini) {
+      const geminiTest = await testGeminiConnection();
+      geminiReachable = geminiTest.ok;
+      geminiModel = geminiTest.model;
+      geminiError = geminiTest.error;
+    }
+  }
 
   if (checks.supabase && checks.supabaseServiceRole) {
     try {
@@ -25,6 +43,7 @@ export async function GET() {
 
   const ok =
     checks.gemini &&
+    (!testGemini || geminiReachable === true) &&
     (!checks.supabase || (checks.supabaseServiceRole && supabaseReachable !== false));
 
   return Response.json(
@@ -32,6 +51,10 @@ export async function GET() {
       ok,
       checks: {
         ...checks,
+        geminiReachable,
+        geminiModel,
+        geminiKeyType,
+        geminiError,
         supabaseReachable,
       },
       timestamp: new Date().toISOString(),

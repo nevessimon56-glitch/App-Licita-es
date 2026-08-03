@@ -1,15 +1,17 @@
-import { GoogleGenAI } from "@google/genai";
+import { ApiError, GoogleGenAI } from "@google/genai";
 
 /** Modelos para análise — Flash primeiro (qualidade), Lite como fallback */
 export const ANALYSIS_MODELS = [
   "gemini-2.5-flash",
   "gemini-2.5-flash-lite",
+  "gemini-2.0-flash",
 ] as const;
 
 /** Modelos para chat */
 export const CHAT_MODELS = [
   "gemini-2.5-flash",
   "gemini-2.5-flash-lite",
+  "gemini-2.0-flash",
 ] as const;
 
 export const GEMINI_MODELS = [
@@ -20,6 +22,7 @@ export const GEMINI_MODELS = [
 
 const DEFAULT_ANALYSIS_MODEL = "gemini-2.5-flash";
 const DEFAULT_CHAT_MODEL = "gemini-2.5-flash";
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 export function getGeminiApiKey(): string {
   const key = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
@@ -47,19 +50,47 @@ export function getChatModel(): string {
   );
 }
 
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && error !== null && "message" in error) {
-    return String((error as { message: unknown }).message);
-  }
-  return String(error);
+interface GeminiErrorDetails {
+  message: string;
+  status?: number;
 }
 
-function isAuthError(message: string): boolean {
-  const lower = message.toLowerCase();
+function getErrorDetails(error: unknown): GeminiErrorDetails {
+  if (error instanceof ApiError) {
+    return { message: error.message, status: error.status };
+  }
+
+  if (error instanceof Error) {
+    const statusMatch = error.message.match(/\b(401|403|404|429|500)\b/);
+    return {
+      message: error.message,
+      status: statusMatch ? Number(statusMatch[1]) : undefined,
+    };
+  }
+
+  if (typeof error === "object" && error !== null) {
+    const record = error as Record<string, unknown>;
+    const message =
+      typeof record.message === "string"
+        ? record.message
+        : JSON.stringify(error);
+    const status =
+      typeof record.status === "number"
+        ? record.status
+        : typeof record.code === "number"
+          ? record.code
+          : undefined;
+    return { message, status };
+  }
+
+  return { message: String(error) };
+}
+
+function isAuthError(details: GeminiErrorDetails): boolean {
+  const lower = details.message.toLowerCase();
   return (
-    message.includes("401") ||
-    message.includes("403") ||
+    details.status === 401 ||
+    details.status === 403 ||
     lower.includes("invalid_api_key") ||
     lower.includes("unauthenticated") ||
     lower.includes("api key") ||
@@ -68,36 +99,41 @@ function isAuthError(message: string): boolean {
   );
 }
 
-function isModelUnavailableError(message: string): boolean {
-  const lower = message.toLowerCase();
+function isModelUnavailableError(details: GeminiErrorDetails): boolean {
+  const lower = details.message.toLowerCase();
   return (
-    message.includes("404") ||
+    details.status === 404 ||
     lower.includes("no longer available") ||
-    lower.includes("not found") ||
-    lower.includes("is not supported")
+    lower.includes("is not supported") ||
+    (lower.includes("not found") && lower.includes("model"))
   );
 }
 
-export function parseGeminiError(error: unknown): never {
-  const message = getErrorMessage(error);
+function isQuotaError(details: GeminiErrorDetails): boolean {
+  const lower = details.message.toLowerCase();
+  return details.status === 429 || lower.includes("quota") || lower.includes("rate limit");
+}
 
-  if (message.includes("429") || message.toLowerCase().includes("quota")) {
+export function parseGeminiError(error: unknown): never {
+  const details = getErrorDetails(error);
+
+  if (isQuotaError(details)) {
     throw new Error(
       "Limite de uso da API Gemini atingido. Verifique seu plano em https://aistudio.google.com"
     );
   }
-  if (isAuthError(message)) {
+  if (isAuthError(details)) {
     throw new Error(
       "Chave GEMINI_API_KEY inválida ou sem permissão. Verifique em https://aistudio.google.com/apikey (chaves novas começam com AQ.)."
     );
   }
-  if (isModelUnavailableError(message)) {
+  if (isModelUnavailableError(details)) {
     throw new Error(
-      `Modelo Gemini indisponível (${getAnalysisModel()} / ${getChatModel()}). Na Render, defina GEMINI_ANALYSIS_MODEL=gemini-2.5-flash e GEMINI_CHAT_MODEL=gemini-2.5-flash.`
+      `Modelo Gemini indisponível (${getAnalysisModel()} / ${getChatModel()}). Tente GEMINI_ANALYSIS_MODEL=gemini-2.5-flash-lite na Render. Detalhe: ${details.message}`
     );
   }
 
-  throw new Error(`Erro na API Gemini: ${message}`);
+  throw new Error(`Erro na API Gemini: ${details.message}`);
 }
 
 interface GenerateOptions {
@@ -114,6 +150,138 @@ function createGeminiClient(): GoogleGenAI {
   return new GoogleGenAI({ apiKey: getGeminiApiKey() });
 }
 
+function buildContents(options: GenerateOptions) {
+  if (options.history?.length) {
+    return [
+      ...options.history.map((entry) => ({
+        role: entry.role,
+        parts: entry.parts,
+      })),
+      {
+        role: "user" as const,
+        parts: [{ text: options.userMessage }],
+      },
+    ];
+  }
+
+  return [
+    {
+      role: "user" as const,
+      parts: [{ text: options.userMessage }],
+    },
+  ];
+}
+
+async function generateWithGeminiSdk(
+  ai: GoogleGenAI,
+  modelName: string,
+  options: GenerateOptions
+): Promise<string> {
+  const config = {
+    systemInstruction: options.systemInstruction,
+    temperature: options.temperature ?? 0.2,
+    ...(options.maxOutputTokens
+      ? { maxOutputTokens: options.maxOutputTokens }
+      : {}),
+    ...(options.responseMimeType
+      ? { responseMimeType: options.responseMimeType }
+      : {}),
+  };
+
+  if (options.history?.length) {
+    const chat = ai.chats.create({
+      model: modelName,
+      config,
+      history: options.history,
+    });
+    const response = await chat.sendMessage({
+      message: options.userMessage,
+    });
+    return response.text ?? "";
+  }
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: options.userMessage,
+    config,
+  });
+  return response.text ?? "";
+}
+
+async function generateWithGeminiRest(
+  modelName: string,
+  options: GenerateOptions
+): Promise<string> {
+  const apiKey = getGeminiApiKey();
+  const response = await fetch(
+    `${GEMINI_API_BASE}/models/${modelName}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: options.systemInstruction }],
+        },
+        contents: buildContents(options),
+        generationConfig: {
+          temperature: options.temperature ?? 0.2,
+          ...(options.maxOutputTokens
+            ? { maxOutputTokens: options.maxOutputTokens }
+            : {}),
+          ...(options.responseMimeType
+            ? { responseMimeType: options.responseMimeType }
+            : {}),
+        },
+      }),
+    }
+  );
+
+  const payload = (await response.json()) as {
+    error?: { message?: string; code?: number; status?: string };
+    candidates?: Array<{
+      content?: { parts?: Array<{ text?: string }> };
+    }>;
+  };
+
+  if (!response.ok) {
+    const apiMessage =
+      payload.error?.message ??
+      `HTTP ${response.status} ao chamar Gemini (${modelName})`;
+    const error = new Error(apiMessage) as Error & { status?: number };
+    error.status = payload.error?.code ?? response.status;
+    throw error;
+  }
+
+  const text = payload.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  return text;
+}
+
+export async function testGeminiConnection(): Promise<{
+  ok: boolean;
+  model?: string;
+  transport?: "sdk" | "rest";
+  error?: string;
+}> {
+  try {
+    const { model } = await generateWithGemini({
+      systemInstruction: "Responda apenas OK.",
+      userMessage: "ping",
+      models: ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"],
+      maxOutputTokens: 16,
+      temperature: 0,
+    });
+    return { ok: true, model };
+  } catch (error) {
+    return {
+      ok: false,
+      error: getErrorDetails(error).message,
+    };
+  }
+}
+
 export async function generateWithGemini(options: GenerateOptions): Promise<{
   text: string;
   model: string;
@@ -126,55 +294,41 @@ export async function generateWithGemini(options: GenerateOptions): Promise<{
     ...fallbackList.filter((m) => m !== preferred),
   ];
 
-  const config = {
-    systemInstruction: options.systemInstruction,
-    temperature: options.temperature ?? 0.2,
-    ...(options.maxOutputTokens
-      ? { maxOutputTokens: options.maxOutputTokens }
-      : {}),
-    ...(options.responseMimeType
-      ? { responseMimeType: options.responseMimeType }
-      : {}),
-  };
-
   let lastError: unknown;
 
   for (const modelName of modelsToTry) {
-    try {
-      let text = "";
+    const attempts: Array<{
+      transport: "sdk" | "rest";
+      run: () => Promise<string>;
+    }> = [
+      { transport: "sdk", run: () => generateWithGeminiSdk(ai, modelName, options) },
+      { transport: "rest", run: () => generateWithGeminiRest(modelName, options) },
+    ];
 
-      if (options.history?.length) {
-        const chat = ai.chats.create({
-          model: modelName,
-          config,
-          history: options.history,
-        });
-        const response = await chat.sendMessage({
-          message: options.userMessage,
-        });
-        text = response.text ?? "";
-      } else {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: options.userMessage,
-          config,
-        });
-        text = response.text ?? "";
-      }
-
-      if (!text.trim()) {
-        throw new Error("A IA não retornou conteúdo.");
-      }
-
-      return { text, model: modelName };
-    } catch (error) {
-      const message = getErrorMessage(error);
-      if (isModelUnavailableError(message)) {
+    for (const attempt of attempts) {
+      try {
+        const text = await attempt.run();
+        if (!text.trim()) {
+          throw new Error("A IA não retornou conteúdo.");
+        }
+        return { text, model: modelName };
+      } catch (error) {
+        const details = getErrorDetails(error);
+        if (isAuthError(details) || isQuotaError(details)) {
+          parseGeminiError(error);
+        }
+        if (isModelUnavailableError(details)) {
+          lastError = error;
+          console.warn(
+            `Gemini ${modelName} via ${attempt.transport} indisponível: ${details.message}`
+          );
+          continue;
+        }
         lastError = error;
-        console.warn(`Modelo ${modelName} indisponível, tentando próximo...`);
-        continue;
+        console.warn(
+          `Gemini ${modelName} via ${attempt.transport} falhou: ${details.message}`
+        );
       }
-      parseGeminiError(error);
     }
   }
 
