@@ -1,21 +1,20 @@
 import { ApiError, GoogleGenAI } from "@google/genai";
 
-/** Modelos para análise — Lite primeiro para economizar quota */
+/** Modelos para análise — 2.5-flash não está disponível para contas novas */
 export const ANALYSIS_MODELS = [
   "gemini-2.5-flash-lite",
-  "gemini-2.5-flash",
+  "gemini-3-flash-preview",
 ] as const;
 
 /** Modelos para chat */
 export const CHAT_MODELS = [
   "gemini-2.5-flash-lite",
-  "gemini-2.5-flash",
+  "gemini-3-flash-preview",
 ] as const;
 
 export const GEMINI_MODELS = [
   ...ANALYSIS_MODELS,
   "gemini-2.5-pro",
-  "gemini-3-flash-preview",
 ] as const;
 
 const DEFAULT_ANALYSIS_MODEL = "gemini-2.5-flash-lite";
@@ -112,6 +111,11 @@ function isModelUnavailableError(details: GeminiErrorDetails): boolean {
   );
 }
 
+function isNewUserModelBlockedError(details: GeminiErrorDetails): boolean {
+  const lower = details.message.toLowerCase();
+  return lower.includes("no longer available to new users");
+}
+
 function isRateLimitError(details: GeminiErrorDetails): boolean {
   const lower = details.message.toLowerCase();
   return (
@@ -167,7 +171,7 @@ export function parseGeminiError(error: unknown): never {
   }
   if (isModelUnavailableError(details)) {
     throw new Error(
-      `Modelo Gemini indisponível (${getAnalysisModel()} / ${getChatModel()}). Tente GEMINI_ANALYSIS_MODEL=gemini-2.5-flash-lite na Render. Detalhe: ${details.message}`
+      `Modelo Gemini indisponível (${getAnalysisModel()} / ${getChatModel()}). Use GEMINI_ANALYSIS_MODEL=gemini-2.5-flash-lite ou gemini-3-flash-preview na Render. Detalhe: ${details.message}`
     );
   }
 

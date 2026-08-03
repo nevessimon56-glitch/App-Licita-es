@@ -63,7 +63,7 @@ Foque nos itens de ar condicionado e equipamentos correlatos. Mantenha descri√ß√
     temperature: 0.1,
     maxOutputTokens: 32_000,
     responseMimeType: "application/json",
-    models: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite"],
+    models: ["gemini-2.5-flash-lite", "gemini-3-flash-preview"],
   } as const;
 
   let text = "";
