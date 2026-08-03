@@ -1,17 +1,15 @@
 import { ApiError, GoogleGenAI } from "@google/genai";
 
-/** Modelos para análise — Lite primeiro para economizar quota e RPM */
+/** Modelos para análise — Lite primeiro para economizar quota */
 export const ANALYSIS_MODELS = [
   "gemini-2.5-flash-lite",
   "gemini-2.5-flash",
-  "gemini-2.0-flash",
 ] as const;
 
 /** Modelos para chat */
 export const CHAT_MODELS = [
   "gemini-2.5-flash-lite",
   "gemini-2.5-flash",
-  "gemini-2.0-flash",
 ] as const;
 
 export const GEMINI_MODELS = [
@@ -139,9 +137,19 @@ function isQuotaExhaustedError(details: GeminiErrorDetails): boolean {
   );
 }
 
+function isFreeTierQuotaError(details: GeminiErrorDetails): boolean {
+  const lower = details.message.toLowerCase();
+  return lower.includes("free_tier") || lower.includes("free tier");
+}
+
 export function parseGeminiError(error: unknown): never {
   const details = getErrorDetails(error);
 
+  if (isFreeTierQuotaError(details)) {
+    throw new Error(
+      "Sua chave está no plano GRATUITO do Gemini (free_tier), não no pago. Vincule faturamento ao projeto da chave em https://aistudio.google.com → Settings → Plan / Billing. Depois use GEMINI_ANALYSIS_MODEL=gemini-2.5-flash-lite."
+    );
+  }
   if (isRateLimitError(details)) {
     throw new Error(
       "Muitas requisições em pouco tempo na API Gemini. Aguarde 1–2 minutos e tente de novo. No plano gratuito o limite por minuto é baixo — uma análise grande pode precisar de algumas tentativas."
