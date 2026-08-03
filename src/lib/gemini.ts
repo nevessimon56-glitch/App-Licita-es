@@ -169,6 +169,11 @@ export function parseGeminiError(error: unknown): never {
       "Chave GEMINI_API_KEY inválida ou sem permissão. Verifique em https://aistudio.google.com/apikey (chaves novas começam com AQ.)."
     );
   }
+  if (isNewUserModelBlockedError(details)) {
+    throw new Error(
+      "O modelo gemini-2.5-flash não está disponível para contas novas. Na Render, use GEMINI_ANALYSIS_MODEL=gemini-2.5-flash-lite e GEMINI_CHAT_MODEL=gemini-2.5-flash-lite."
+    );
+  }
   if (isModelUnavailableError(details)) {
     throw new Error(
       `Modelo Gemini indisponível (${getAnalysisModel()} / ${getChatModel()}). Use GEMINI_ANALYSIS_MODEL=gemini-2.5-flash-lite ou gemini-3-flash-preview na Render. Detalhe: ${details.message}`
